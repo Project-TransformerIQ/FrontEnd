@@ -88,42 +88,42 @@ export function Team() {
       },
       specializations: ['Equipment Maintenance', 'Repair Operations', 'Technical Support']
     },
-    {
-      id: 5,
-      name: 'Lisa Chen',
-      role: 'Engineer',
-      department: 'Research & Development',
-      email: 'lisa.chen@company.com',
-      phone: '+1 (555) 567-8901',
-      location: 'Station A - R&D Lab',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
-      joinDate: '2022-08-01',
-      certifications: ['Advanced Thermography', 'AI/ML Certification', 'Research Methods'],
-      stats: {
-        inspectionsCompleted: 65,
-        avgResponseTime: '1.9 hours',
-        accuracy: '95.1%'
-      },
-      specializations: ['AI Development', 'Algorithm Design', 'Technology Innovation']
-    },
-    {
-      id: 6,
-      name: 'Robert Martinez',
-      role: 'Engineer',
-      department: 'Safety & Compliance',
-      email: 'robert.martinez@company.com',
-      phone: '+1 (555) 678-9012',
-      location: 'Station B - Safety Office',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
-      joinDate: '2023-02-20',
-      certifications: ['Safety Engineering', 'OSHA 30', 'Risk Management'],
-      stats: {
-        inspectionsCompleted: 47,
-        avgResponseTime: '2.3 hours',
-        accuracy: '93.7%'
-      },
-      specializations: ['Safety Protocols', 'Compliance Auditing', 'Risk Mitigation']
-    }
+    // {
+    //   id: 5,
+    //   name: 'Lisa Chen',
+    //   role: 'Engineer',
+    //   department: 'Research & Development',
+    //   email: 'lisa.chen@company.com',
+    //   phone: '+1 (555) 567-8901',
+    //   location: 'Station A - R&D Lab',
+    //   avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150',
+    //   joinDate: '2022-08-01',
+    //   certifications: ['Advanced Thermography', 'AI/ML Certification', 'Research Methods'],
+    //   stats: {
+    //     inspectionsCompleted: 65,
+    //     avgResponseTime: '1.9 hours',
+    //     accuracy: '95.1%'
+    //   },
+    //   specializations: ['AI Development', 'Algorithm Design', 'Technology Innovation']
+    // },
+    // {
+    //   id: 6,
+    //   name: 'Robert Martinez',
+    //   role: 'Engineer',
+    //   department: 'Safety & Compliance',
+    //   email: 'robert.martinez@company.com',
+    //   phone: '+1 (555) 678-9012',
+    //   location: 'Station B - Safety Office',
+    //   avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150',
+    //   joinDate: '2023-02-20',
+    //   certifications: ['Safety Engineering', 'OSHA 30', 'Risk Management'],
+    //   stats: {
+    //     inspectionsCompleted: 47,
+    //     avgResponseTime: '2.3 hours',
+    //     accuracy: '93.7%'
+    //   },
+    //   specializations: ['Safety Protocols', 'Compliance Auditing', 'Risk Mitigation']
+    // }
   ];
 
   const getRoleBadge = (role: string) => {
