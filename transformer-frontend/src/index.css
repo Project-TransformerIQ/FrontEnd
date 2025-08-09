@@ -1,0 +1,60 @@
+/* Reset & basics */
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  line-height: 1.5;
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  font-weight: 400;
+
+  /* ✅ Force light mode only */
+  color-scheme: light;
+  color: #213547;
+  background-color: #ffffff;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+/* Breakpoints */
+:root {
+  --bp-xl: 1280px;
+  --bp-lg: 1024px;
+  --bp-md: 768px;
+  --bp-sm: 640px;
+}
+
+/* Fluid typography */
+h1 { font-size: clamp(1.5rem, 2.5vw + 1rem, 2.25rem); line-height: 1.2; }
+h2 { font-size: clamp(1.25rem, 1.5vw + 1rem, 1.5rem); }
+
+/* Layout helpers */
+.container { width: min(1200px, 100%); margin-inline: auto; padding-inline: 1rem; }
+.grid { display: grid; gap: 1rem; }
+.flex { display: flex; gap: .75rem; }
+.flex-wrap { flex-wrap: wrap; }
+.scroll-x { overflow-x: auto; }
+img, video { max-width: 100%; height: auto; }
+
+/* Links */
+a { font-weight: 500; color: #646cff; text-decoration: inherit; }
+a:hover { color: #535bf2; }
+
+/* Buttons */
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #f9f9f9;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover { border-color: #646cff; }
+button:focus, button:focus-visible { outline: 4px auto -webkit-focus-ring-color; }
+
+/* ❌ Remove dark-mode overrides */
