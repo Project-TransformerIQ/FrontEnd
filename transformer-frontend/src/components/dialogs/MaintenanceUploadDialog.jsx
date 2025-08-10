@@ -67,3 +67,21 @@ export default function MaintenanceUploadDialog({
               ) : (
                 <>Drag & drop image here, or click to select</>
               )}
+            </FileDropZone>
+          </Box>
+          <input
+            id="maint-file-input"
+            type="file"
+            accept="image/*"
+            style={{ display: "none" }}
+            onChange={(e) => handleFile(e.target.files?.[0])}
+          />
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={loading} variant="text">Cancel</Button>
+        <Button onClick={submit} disabled={loading || !file} variant="contained">Upload</Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
