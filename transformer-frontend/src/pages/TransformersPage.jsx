@@ -321,3 +321,238 @@ export default function TransformersPage() {
         distribution: transformers.filter((t) => t.transformerType === "DISTRIBUTION").length,
         regions: [...new Set(transformers.map((t) => t.region).filter(Boolean))].length,
     };
+
+    return (
+        <Container maxWidth="xl" sx={{ py: 3 }}>
+            <Fade in timeout={600}>
+                <Box>
+                    <Card
+                        sx={{
+                            mb: 4,
+                            background: "linear-gradient(135deg, #1565c0 0%, #1976d2 35%, #0ea5e9 100%)",
+                            color: "white",
+                            position: "relative",
+                            overflow: "hidden",
+                            boxShadow:
+                                "inset 0 1px 0 rgba(255,255,255,.15), 0 18px 40px rgba(2,90,160,.25)",
+                            borderRadius: 3,
+                        }}
+                    >
+                        <CardContent sx={{ p: 4 }}>
+                            <Stack
+                                direction={{ xs: "column", md: "row" }}
+                                justifyContent="space-between"
+                                alignItems="center"
+                                spacing={3}
+                            >
+                                <Stack spacing={1} alignItems={{ xs: "center", md: "flex-start" }}>
+                                    <Typography
+                                        variant="h3"
+                                        sx={{ fontWeight: 700, display: "flex", alignItems: "center", gap: 2 }}
+                                    >
+                                        <ElectricalServices sx={{ fontSize: 48 }} />
+                                        Transformer Management
+                                    </Typography>
+                                    <Typography variant="h6" sx={{ opacity: 0.9 }}>
+                                        Monitor and manage electrical transformers with thermal inspection data
+                                    </Typography>
+                                </Stack>
+
+                                <Stack direction="row" spacing={2}>
+                                    <Button
+                                        variant="contained"
+                                        size="large"
+                                        startIcon={<Refresh />}
+                                        onClick={() => load()}
+                                        disabled={loading}
+                                    >
+                                        Refresh
+                                    </Button>
+                                    <Button
+                                        variant="contained"
+                                        size="large"
+                                        startIcon={<Add />}
+                                        onClick={openCreate}
+                                        sx={{ bgcolor: "#ff6b35", "&:hover": { bgcolor: "#e55a2b" } }}
+                                    >
+                                        Add Transformer
+                                    </Button>
+                                </Stack>
+                            </Stack>
+
+                            {/* Fancy Stats */}
+                            <Box sx={{ mt: 3 }}>
+                                <Stack
+                                    direction={{ xs: "column", sm: "row" }}
+                                    spacing={2}
+                                    sx={{ "& > *": { flex: 1 } }}
+                                >
+                                    <Grow in timeout={900}>
+                                        <Box>
+                                            <StatCard
+                                                title="Total Transformers"
+                                                value={stats.total}
+                                                icon={<Grid3x3 />}
+                                                gradient="linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)"
+                                                accent="#4facfe"
+                                            />
+                                        </Box>
+                                    </Grow>
+                                    <Grow in timeout={1050}>
+                                        <Box>
+                                            <StatCard
+                                                title="Bulk Type"
+                                                value={stats.bulk}
+                                                icon={<Apartment />}
+                                                gradient="linear-gradient(135deg, #f7971e 0%, #ffd200 100%)"
+                                                accent="#f7971e"
+                                            />
+                                        </Box>
+                                    </Grow>
+                                    <Grow in timeout={1200}>
+                                        <Box>
+                                            <StatCard
+                                                title="Distribution Type"
+                                                value={stats.distribution}
+                                                icon={<ElectricalServices />}
+                                                gradient="linear-gradient(135deg, #ff5858 0%, #f09819 100%)"
+                                                accent="#ff5858"
+                                            />
+                                        </Box>
+                                    </Grow>
+                                    <Grow in timeout={1350}>
+                                        <Box>
+                                            <StatCard
+                                                title="Regions Covered"
+                                                value={stats.regions}
+                                                icon={<Map />}
+                                                gradient="linear-gradient(135deg, #a8ff78 0%, #78ffd6 100%)"
+                                                accent="#78ffd6"
+                                            />
+                                        </Box>
+                                    </Grow>
+                                </Stack>
+                            </Box>
+                        </CardContent>
+                    </Card>
+
+                    <Grow in timeout={800}>
+                        <Paper sx={{ p: 3, mb: 3, borderRadius: 3 }}>
+                            <Stack direction={{ xs: "column", md: "row" }} spacing={2} alignItems="center">
+                                <TextField
+                                    placeholder="Search transformers..."
+                                    variant="outlined"
+                                    size="medium"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    sx={{ flex: 1, minWidth: 300 }}
+                                    InputProps={{
+                                        startAdornment: (
+                                            <InputAdornment position="start">
+                                                <Search color="action" />
+                                            </InputAdornment>
+                                        ),
+                                    }}
+                                />
+
+                                <TextField
+                                    select
+                                    label="Region"
+                                    value={selectedRegion}
+                                    onChange={(e) => setSelectedRegion(e.target.value)}
+                                    sx={{ minWidth: 140 }}
+                                    SelectProps={{ displayEmpty: true }}
+                                >
+                                    <MenuItem value="All">All</MenuItem>
+                                    {["Colombo", "Gampaha", "Kandy", "Galle", "Jaffna"].map((r) => (
+                                        <MenuItem key={r} value={r}>
+                                            {r}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+
+                                <TextField
+                                    select
+                                    label="Type"
+                                    value={selectedType}
+                                    onChange={(e) => setSelectedType(e.target.value)}
+                                    sx={{ minWidth: 160 }}
+                                    SelectProps={{ displayEmpty: true }}
+                                >
+                                    <MenuItem value="All">All</MenuItem>
+                                    {["BULK", "DISTRIBUTION"].map((t) => (
+                                        <MenuItem key={t} value={t}>
+                                            {t}
+                                        </MenuItem>
+                                    ))}
+                                </TextField>
+                            </Stack>
+                        </Paper>
+                    </Grow>
+
+                    {filtered.length ? (
+                        <TransformerTable
+                            items={filtered}
+                            editingId={editingId}
+                            onRowClick={(t) =>
+                                navigate(`/transformers/${t.id}/inspections`, { state: { transformer: t } })
+                            }
+                            onOpenImages={openImages}
+                            onEdit={openEdit}
+                            onDelete={handleDeleteClick}
+                        />
+                    ) : (
+                        <EmptyState
+                            title="No transformers yet"
+                            subtitle="Add your first transformer to get started."
+                            actionText="Add Transformer"
+                            onAction={openCreate}
+                        />
+                    )}
+                </Box>
+            </Fade>
+
+            <TransformerFormDialog
+                open={formDialogOpen}
+                mode={mode}
+                initialValues={initialForm}
+                regions={["Colombo", "Gampaha", "Kandy", "Galle", "Jaffna"]}
+                types={["BULK", "DISTRIBUTION"]}
+                onClose={() => setFormDialogOpen(false)}
+                onSubmit={submitForm}
+            />
+
+            <DeleteConfirmDialog
+                open={deleteDialog.open}
+                title="Delete Transformer"
+                description={`Delete transformer "${deleteDialog.transformer?.transformerNo}"? This cannot be undone.`}
+                onCancel={() => setDeleteDialog({ open: false, transformer: null })}
+                onConfirm={confirmDelete}
+            />
+
+            {imagesOpen && (
+                <ImagePreviewDialog
+                    open={imagesOpen}
+                    onClose={() => setImagesOpen(false)}
+                    images={images}
+                    index={previewIndex}
+                    setIndex={setPreviewIndex}
+                    apiBase="/api/transformers"
+                    transformer={viewT}
+                    loading={imagesLoading}
+                />
+            )}
+
+            <Snackbar
+                open={snackbar.open}
+                autoHideDuration={3500}
+                onClose={close}
+                anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+            >
+                <Alert onClose={close} severity={snackbar.severity} variant="filled">
+                    {snackbar.message}
+                </Alert>
+            </Snackbar>
+        </Container>
+    );
+}
