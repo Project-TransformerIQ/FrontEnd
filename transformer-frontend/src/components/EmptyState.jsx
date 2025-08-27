@@ -1,45 +1,32 @@
-// src/components/upload/FileDropZone.jsx
-import { Box, Typography } from "@mui/material";
-import { useCallback, useState } from "react";
+import { Box, Button, Typography } from "@mui/material";
+import { ElectricalServices, Add } from "@mui/icons-material";
 
-export default function FileDropZone({
-  onFile,
-  accept = "image/*",
-  height = 180,
-  children,
-}) {
-  const [dragOver, setDragOver] = useState(false);
-
-  const onDrop = useCallback((e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const f = e.dataTransfer?.files?.[0];
-    if (f && (!accept || f.type.match(accept.replace("*", ".*")))) {
-      onFile?.(f);
-    }
-  }, [accept, onFile]);
-
+export default function EmptyState({ title = "No data yet", subtitle, actionText, onAction }) {
   return (
     <Box
-      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={onDrop}
       sx={{
-        border: "1px dashed",
-        borderColor: dragOver ? "primary.main" : "divider",
-        borderRadius: 2,
-        height,
-        display: "grid",
-        placeItems: "center",
-        bgcolor: dragOver ? "primary.50" : "background.paper",
-        transition: "border-color .15s, background-color .15s",
-        p: 2
+        px: 2,
+        py: 4,
+        minHeight: "50vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        textAlign: "center",
+        gap: 2
       }}
     >
-      {children || (
-        <Typography variant="body2" color="text.secondary">
-          Drag & drop image here, or click to select
-        </Typography>
+      <ElectricalServices sx={{ fontSize: 96, color: "action.disabled" }} />
+      <Box>
+        <Typography variant="h5" gutterBottom>{title}</Typography>
+        {subtitle && (
+          <Typography variant="body1" color="text.secondary">{subtitle}</Typography>
+        )}
+      </Box>
+      {onAction && (
+        <Button variant="contained" startIcon={<Add />} onClick={onAction}>
+          {actionText || "Add"}
+        </Button>
       )}
     </Box>
   );
