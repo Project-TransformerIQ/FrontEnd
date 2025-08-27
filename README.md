@@ -71,10 +71,10 @@ Together, these components enable **real-time monitoring**, **inspection schedul
 ## 👥 Team Members  
 This project was built by **Team WeMake Software**:  
 
-1. **Member 1** – Frontend Development (React, Components, Layouts)  
-2. **Member 2** – Backend Integration (API Endpoints, Database Sync)  
-3. **Member 3** – Database & Schema Design (PostgreSQL, Queries)  
-4. **Member 4** – UI/UX & Testing (User Experience, Bug Fixing, QA)  
+1. Dulmin Dulsara 
+2. Nirosh Lakshan  
+3. Tharushi Karavita 
+4. Lasith Haputhanthri
 
 ---
 
