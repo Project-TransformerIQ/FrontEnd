@@ -18,6 +18,7 @@ export const deleteInspection = (id, inspectionId) => axiosClient.delete(`${apiB
 // Images
 export const getImages = (id) => axiosClient.get(`${apiBase}/${id}/images`);
 
+export const anomalyResults = (id) => axiosClient.get(`${apiBase}/images/${id}/anomaly-results`);
 // IMPORTANT: omit Content-Type so the browser sets boundary
 export const uploadImage = (id, formData) =>
   axiosClient.post(`${apiBase}/${id}/images`, formData);
