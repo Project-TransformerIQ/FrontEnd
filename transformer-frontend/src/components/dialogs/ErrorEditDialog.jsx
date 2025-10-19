@@ -22,7 +22,7 @@ import { Close } from "@mui/icons-material";
 /**
  * ErrorEditDialog - Dialog for editing an existing error
  */
-export default function ErrorEditDialog({ open, onClose, onSave, error, errorIndex }) {
+export default function ErrorEditDialog({ open, onClose, onSave, error, errorIndex, currentUser = "User" }) {
   const [status, setStatus] = useState("FAULTY");
   const [label, setLabel] = useState("");
   const [comment, setComment] = useState("");
@@ -46,6 +46,8 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
       confidence: parseFloat(confidence),
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       lastModified: new Date().toISOString(),
+      lastModifiedBy: currentUser,
+      lastModifiedAt: new Date().toISOString(),
     };
 
     onSave(updatedError);
@@ -124,12 +126,14 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
           {error.timestamp && (
             <Typography variant="caption" color="text.secondary">
               Created: {new Date(error.timestamp).toLocaleString()}
+              {error.createdBy && ` by ${error.createdBy}`}
             </Typography>
           )}
 
           {error.lastModified && (
             <Typography variant="caption" color="text.secondary">
               Last modified: {new Date(error.lastModified).toLocaleString()}
+              {error.lastModifiedBy && ` by ${error.lastModifiedBy}`}
             </Typography>
           )}
         </Stack>

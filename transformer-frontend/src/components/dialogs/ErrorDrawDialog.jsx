@@ -23,7 +23,7 @@ import { Close, RestartAlt } from "@mui/icons-material";
  * ErrorDrawDialog - Dialog for drawing a new error box on an image
  * User clicks and drags to draw a rectangle
  */
-export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, imageId }) {
+export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, imageId, currentUser = "User" }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -166,6 +166,8 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       isManual: true,
       timestamp: new Date().toISOString(),
+      createdBy: currentUser,
+      createdAt: new Date().toISOString(),
     };
 
     onSave(newError);

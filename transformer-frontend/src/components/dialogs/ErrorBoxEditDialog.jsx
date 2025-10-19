@@ -24,7 +24,7 @@ import { Close, RestartAlt, ZoomIn, ZoomOut } from "@mui/icons-material";
  * ErrorBoxEditDialog - Dialog for editing error box position and size
  * Allows dragging to reposition and handles for resizing
  */
-export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, imageId, error, errorIndex }) {
+export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, imageId, error, errorIndex, currentUser = "User" }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
   
@@ -332,6 +332,8 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
       confidence: parseFloat(confidence),
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       lastModified: new Date().toISOString(),
+      lastModifiedBy: currentUser,
+      lastModifiedAt: new Date().toISOString(),
     };
 
     onSave(updatedError);

@@ -249,6 +249,14 @@ function AIFaultList({ boxes, onEdit, onDelete, onEditBox }) {
                         {b?.lastModified && (
                           <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
                             Last modified: {new Date(b.lastModified).toLocaleString()}
+                            {b?.lastModifiedBy && ` by ${b.lastModifiedBy}`}
+                          </Typography>
+                        )}
+
+                        {b?.timestamp && !b?.lastModified && (
+                          <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
+                            Created: {new Date(b.timestamp).toLocaleString()}
+                            {b?.createdBy && ` by ${b.createdBy}`}
                           </Typography>
                         )}
                       </Stack>
@@ -589,6 +597,9 @@ export default function ComparePage() {
   const [boxEditDialogOpen, setBoxEditDialogOpen] = useState(false);
   const [selectedErrorIndex, setSelectedErrorIndex] = useState(null);
   const [savingError, setSavingError] = useState(false);
+
+  // User context - TODO: Replace with actual authentication
+  const [currentUser] = useState("Admin"); // This should come from auth context/service
 
   const setAnalysis = (imgId, patch) =>
       setAnalysisById(prev => ({ ...prev, [imgId]: { ...(prev[imgId] || {}), ...patch } }));
@@ -971,6 +982,7 @@ export default function ComparePage() {
           onSave={handleAddError}
           imageSrc={maint[idx] ? buildImageRawUrl(maint[idx].id) : ""}
           imageId={maint[idx]?.id}
+          currentUser={currentUser}
         />
 
         <ErrorEditDialog
@@ -982,6 +994,7 @@ export default function ComparePage() {
           onSave={handleSaveEditedError}
           error={selectedErrorIndex !== null ? numberedBoxes[selectedErrorIndex] : null}
           errorIndex={selectedErrorIndex}
+          currentUser={currentUser}
         />
 
         <ErrorBoxEditDialog
@@ -995,6 +1008,7 @@ export default function ComparePage() {
           imageId={maint[idx]?.id}
           error={selectedErrorIndex !== null ? numberedBoxes[selectedErrorIndex] : null}
           errorIndex={selectedErrorIndex}
+          currentUser={currentUser}
         />
       </Container>
   );
