@@ -16,7 +16,6 @@ import {
   getInspections,
   getImages,
   buildImageRawUrl,
-  anomalyResults,
   saveError,
   updateError,
   deleteError as deleteErrorApi,
@@ -28,88 +27,10 @@ import ErrorEditDialog from "../components/dialogs/ErrorEditDialog";
 import ErrorBoxEditDialog from "../components/dialogs/ErrorBoxEditDialog";
 
 /* ========================================================================
-   REAL anomaly API (maps your server JSON → overlay-friendly boxes)
-   GET /api/transformers/images/{imageId}/anomaly-results
-   Sample success payload given in your message.
+   Simplified: All errors (AI-detected + user-added) are stored in the same
+   database table. Backend saves AI detections to the errors table after
+   analysis completes. Frontend only needs to call getErrors().
    ======================================================================== */
-const API_BASE = "http://127.0.0.1:5000";
-
-/**
- * Returns { boxes: [{ cx, cy, w, h, status, colorRgb?, color?, label?, confidence?, regionId? }] }
- * - status is "FAULTY" | "POTENTIAL" | "NORMAL"
- * - cx,cy,w,h are in pixels (image natural coords)
- */
-// Uses anomalyResults(imageId) from ../services/transformerService
-// Uses anomalyResults(imageId) from ../services/transformerService
-// Uses anomalyResults(imageId) from ../services/transformerService
-async function fetchDetections(imageId) {
-  try {
-    const resp = await anomalyResults(imageId);
-    const root = resp?.data ?? resp;
-
-    // Your latest payload is flat: { fault_regions, display_metadata }
-    // (Still safe if backend sometimes nests under anomalyDetectionResult)
-    const container = root?.anomalyDetectionResult ?? root;
-
-    const regions = Array.isArray(container?.fault_regions) ? container.fault_regions : [];
-    const colorMap = container?.display_metadata?.boxColors || {}; // e.g., { FAULT: "255,0,0", ... }
-
-    const DEFAULT_POINT_SIZE = 28; // shown if a region lacks boundingBox
-
-    const boxes = regions.map((r) => {
-      const bb = r.boundingBox || null;
-      const hasBox =
-          bb &&
-          Number.isFinite(bb.x) &&
-          Number.isFinite(bb.y) &&
-          Number.isFinite(bb.width) && bb.width > 0 &&
-          Number.isFinite(bb.height) && bb.height > 0;
-
-      const c = r.centroid || {};
-      const cx = (c?.x != null) ? c.x : (hasBox ? bb.x + bb.width / 2 : 0);
-      const cy = (c?.y != null) ? c.y : (hasBox ? bb.y + bb.height / 2 : 0);
-
-      const tag = String(r.tag || "").toUpperCase(); // "FAULT" | "POTENTIAL" | ...
-      const status = tag === "FAULT" ? "FAULTY" : tag === "POTENTIAL" ? "POTENTIAL" : "NORMAL";
-
-      // Color priority: explicit colorRgb -> display_metadata -> sensible fallback by tag
-      let colorRgb;
-      if (Array.isArray(r.colorRgb) && r.colorRgb.length === 3) {
-        colorRgb = r.colorRgb;
-      } else if (colorMap[tag]) {
-        colorRgb = colorMap[tag].split(",").map(Number);
-      } else {
-        colorRgb = (tag === "FAULT")
-            ? [255, 0, 0]
-            : (tag === "POTENTIAL" ? [255, 255, 0] : [0, 255, 0]);
-      }
-
-      return {
-        // pixel-space values; your renderer scales these to the viewport
-        cx,
-        cy,
-        w: hasBox ? bb.width  : DEFAULT_POINT_SIZE,
-        h: hasBox ? bb.height : DEFAULT_POINT_SIZE,
-
-        status,                      // "FAULTY" | "POTENTIAL" | "NORMAL"
-        colorRgb,                    // [r,g,b]
-        color: r.dominantColor || undefined,
-        label: r.type,               // "Hotspot"
-        confidence: r.confidence,    // 0..1
-        regionId: r.regionId ?? r.dbId,
-        isPoint: !hasBox,            // if backend omits boundingBox for some regions
-      };
-    });
-
-    return { boxes };
-  } catch (e) {
-    const msg =
-        e?.response?.data?.error ||
-        e?.message ||
-        `Failed to load anomaly results for ${imageId}`;
-    throw new Error(msg);
-  }
-}
 
 
 /* ---------------- utils ---------------- */
@@ -246,16 +167,16 @@ function AIFaultList({ boxes, onEdit, onDelete, onEditBox }) {
                           </Typography>
                         )}
 
-                        {b?.lastModified && (
+                        {(b?.lastModifiedAt || b?.lastModifiedBy) && (
                           <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
-                            Last modified: {new Date(b.lastModified).toLocaleString()}
+                            Last modified: {new Date(b.lastModifiedAt || b.lastModifiedBy).toLocaleString()}
                             {b?.lastModifiedBy && ` by ${b.lastModifiedBy}`}
                           </Typography>
                         )}
 
-                        {b?.timestamp && !b?.lastModified && (
+                        {(b?.createdAt || b?.timestamp) && (
                           <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
-                            Created: {new Date(b.timestamp).toLocaleString()}
+                            {(b?.lastModifiedAt || b?.lastModifiedBy) ? 'Created' : 'Created'}: {new Date(b.createdAt || b.timestamp).toLocaleString()}
                             {b?.createdBy && ` by ${b.createdBy}`}
                           </Typography>
                         )}
@@ -364,25 +285,48 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // Add wheel event listener with { passive: false } to allow preventDefault
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+
+    const handleWheel = (e) => {
+      if (!layout.ready) return;
+      e.preventDefault();
+
+      const rect = viewport.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+
+      const gx = mx - layout.offsetX;
+      const gy = my - layout.offsetY;
+
+      const dir = e.deltaY > 0 ? -1 : 1;
+      const targetScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * (dir > 0 ? ZOOM_STEP : 1 / ZOOM_STEP)));
+      if (targetScale === scale) return;
+
+      const nx = gx - (targetScale / scale) * (gx - tx);
+      const ny = gy - (targetScale / scale) * (gy - ty);
+
+      setScale(targetScale);
+      setTx(nx);
+      setTy(ny);
+    };
+
+    viewport.addEventListener("wheel", handleWheel, { passive: false });
+    return () => viewport.removeEventListener("wheel", handleWheel);
+  }, [layout, scale, tx, ty]);
+
   const triggerWheelZoom = (dir) => {
     const rect = viewportRef.current.getBoundingClientRect();
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
-    onWheel({ preventDefault(){}, deltaY: dir > 0 ? -1 : 1, clientX: cx, clientY: cy });
-  };
-
-  const onWheel = (e) => {
+    
     if (!layout.ready) return;
-    e.preventDefault();
 
-    const rect = viewportRef.current.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
+    const gx = cx - rect.left - layout.offsetX;
+    const gy = cy - rect.top - layout.offsetY;
 
-    const gx = mx - layout.offsetX;
-    const gy = my - layout.offsetY;
-
-    const dir = e.deltaY > 0 ? -1 : 1;
     const targetScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * (dir > 0 ? ZOOM_STEP : 1 / ZOOM_STEP)));
     if (targetScale === scale) return;
 
@@ -437,7 +381,6 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
       <Box
           ref={viewportRef}
           sx={{ position: "relative", width: "100%", height: 360, overflow: "hidden", backgroundColor: "#0b0b0b", borderRadius: 1 }}
-          onWheel={onWheel}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
           onMouseLeave={endDrag}
@@ -605,9 +548,19 @@ export default function ComparePage() {
       setAnalysisById(prev => ({ ...prev, [imgId]: { ...(prev[imgId] || {}), ...patch } }));
 
   const loadDetections = async (imageIds = []) => {
+    console.log("🔍 loadDetections called with imageIds:", imageIds);
+    
     const unique = [...new Set(imageIds.filter(Boolean))];
+    console.log("📋 Unique imageIds:", unique);
+    
     const need = unique.filter((k) => boxesById[k] == null);
-    if (!need.length) return;
+    console.log("⚡ Images needing fetch:", need);
+    console.log("💾 Current boxesById state:", boxesById);
+    
+    if (!need.length) {
+      console.log("✅ All images already loaded, skipping fetch");
+      return;
+    }
 
     // mark running
     need.forEach((id) => setAnalysis(id, { status: "running" }));
@@ -615,57 +568,47 @@ export default function ComparePage() {
     try {
       const results = await Promise.allSettled(
           need.map(async (imgId) => {
-            // Load AI detections
-            const aiRes = await fetchDetections(imgId);
-            const aiBoxes = aiRes?.boxes || [];
+            console.log(`📡 Fetching errors for image ${imgId}...`);
             
-            // Load user-added/edited errors from backend
-            let userErrors = [];
-            try {
-              const userRes = await getErrors(imgId);
-              userErrors = Array.isArray(userRes?.data) ? userRes.data : [];
-            } catch (err) {
-              console.warn(`No user errors for image ${imgId}:`, err);
-            }
+            // Load all errors (AI-detected + user-added) from database
+            const response = await getErrors(imgId);
+            console.log(`📦 Response for image ${imgId}:`, response);
             
-            // Merge AI detections with user errors
-            // User errors should override AI detections if they have the same regionId
-            const combinedBoxes = [...aiBoxes];
+            const allErrors = Array.isArray(response?.data?.data) ? response.data.data : [];
+            console.log(`✨ Parsed errors for image ${imgId}:`, allErrors);
             
-            userErrors.forEach(userErr => {
-              const existingIdx = combinedBoxes.findIndex(
-                b => (b.regionId || b.id) === (userErr.regionId || userErr.id)
-              );
-              
-              if (existingIdx >= 0) {
-                // Override existing AI detection with user modifications
-                combinedBoxes[existingIdx] = { ...combinedBoxes[existingIdx], ...userErr };
-              } else {
-                // New user-added error
-                combinedBoxes.push({ ...userErr, isManual: true });
-              }
-            });
-            
-            return { imgId, boxes: combinedBoxes };
+            return { imgId, boxes: allErrors };
           })
       );
+
+      console.log("🎯 All fetch results:", results);
 
       const nextBoxes = {};
       results.forEach((r, i) => {
         const key = need[i];
         if (r.status === "fulfilled") {
+          console.log(`✅ Success for image ${key}:`, r.value.boxes);
           nextBoxes[key] = r.value.boxes;
           const anomaly = anomalyFromBoxes(r.value.boxes);
+          console.log(`🎨 Anomaly status for ${key}:`, anomaly);
           setAnalysis(key, { status: "done", anomaly });
         } else {
+          console.error(`❌ Failed for image ${key}:`, r.reason);
           nextBoxes[key] = [];
           setAnalysis(key, { status: "error" });
-          show(r.reason?.message || `AI analysis failed for image ${key}`, "error");
+          show(r.reason?.message || `Failed to load errors for image ${key}`, "error");
         }
       });
-      setBoxesById((p) => ({ ...p, ...nextBoxes }));
+      
+      console.log("🔄 Updating boxesById with:", nextBoxes);
+      setBoxesById((p) => {
+        const updated = { ...p, ...nextBoxes };
+        console.log("💡 New boxesById state:", updated);
+        return updated;
+      });
     } catch (e) {
-      show(e?.message || "Failed to run AI analysis", "error");
+      console.error("💥 Unexpected error in loadDetections:", e);
+      show(e?.message || "Failed to load errors", "error");
     }
   };
 
@@ -744,9 +687,12 @@ export default function ComparePage() {
 
   // Boxes for the currently selected maintenance image (used in unified AI list)
   const currentMaintBoxes = boxesById[maint[idx]?.id] || [];
+  console.log("🖼️ Current maintenance image ID:", maint[idx]?.id);
+  console.log("📦 Current boxes for this image:", currentMaintBoxes);
 
   // Add indices to boxes for display
   const numberedBoxes = currentMaintBoxes.map((box, i) => ({ ...box, idx: i + 1 }));
+  console.log("🔢 Numbered boxes:", numberedBoxes);
 
   // Error management handlers
   const handleAddError = async (newError) => {
@@ -759,7 +705,7 @@ export default function ComparePage() {
     try {
       // Save to backend
       const response = await saveError(imageId, newError);
-      const savedError = response?.data;
+      const savedError = response?.data?.data || response?.data;
       
       // Update local state with server response (includes ID)
       const updatedBoxes = [...currentBoxes, { 
