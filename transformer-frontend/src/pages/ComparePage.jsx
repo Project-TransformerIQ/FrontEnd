@@ -7,7 +7,8 @@ import {
 } from "@mui/material";
 import {
   ArrowBack, ElectricalServices, Assessment, PowerInput,
-  ArrowBackIosNew, ArrowForwardIos, ZoomIn, ZoomOut, RestartAlt
+  ArrowBackIosNew, ArrowForwardIos, ZoomIn, ZoomOut, RestartAlt,
+  Add, Edit, Delete, Comment as CommentIcon
 } from "@mui/icons-material";
 
 import {
@@ -15,9 +16,16 @@ import {
   getInspections,
   getImages,
   buildImageRawUrl,
-  anomalyResults
+  anomalyResults,
+  saveError,
+  updateError,
+  deleteError as deleteErrorApi,
+  getErrors
 } from "../services/transformerService";
 import useSnackbar from "../hooks/useSnackbar";
+import ErrorDrawDialog from "../components/dialogs/ErrorDrawDialog";
+import ErrorEditDialog from "../components/dialogs/ErrorEditDialog";
+import ErrorBoxEditDialog from "../components/dialogs/ErrorBoxEditDialog";
 
 /* ========================================================================
    REAL anomaly API (maps your server JSON → overlay-friendly boxes)
@@ -128,7 +136,7 @@ function anomalyFromBoxes(boxes = []) {
 }
 
 /* ===================== AI Faults list (under all images) ===================== */
-function AIFaultList({ boxes }) {
+function AIFaultList({ boxes, onEdit, onDelete, onEditBox }) {
   const items = Array.isArray(boxes) ? boxes : [];
 
   const isNormalized = (b) =>
@@ -170,23 +178,79 @@ function AIFaultList({ boxes }) {
                     : `cx=${Math.round(b.cx)}, cy=${Math.round(b.cy)}, w=${Math.round(b.w)}, h=${Math.round(b.h)}`;
 
                 const kind = b?.isPoint ? "point" : "box";
+                const isDeleted = b?.isDeleted;
 
                 return (
                     <Paper
                         key={`fault-${b?.regionId ?? b?.idx ?? mapIndex}`}
-                        sx={{ p: 1.1, borderRadius: 1.5, bgcolor: "rgba(102,120,255,0.06)" }}
+                        sx={{ 
+                          p: 1.1, 
+                          borderRadius: 1.5, 
+                          bgcolor: isDeleted ? "rgba(255,0,0,0.06)" : "rgba(102,120,255,0.06)",
+                          opacity: isDeleted ? 0.6 : 1,
+                          border: isDeleted ? "1px dashed rgba(255,0,0,0.3)" : "none"
+                        }}
                     >
-                      <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
-                        <Chip size="small" label={`#${num}`} sx={{ height: 22, fontWeight: 700 }} />
-                        <Chip size="small" label={tag} color={tag === "Faulty" ? "error" : "warning"} sx={{ height: 22 }} />
-                        {b?.label && <Chip size="small" label={b.label} variant="outlined" sx={{ height: 22 }} />}
-                        {typeof b?.confidence === "number" && (
-                            <Chip size="small" label={`Conf ${(b.confidence * 100).toFixed(0)}%`} variant="outlined" sx={{ height: 22 }} />
+                      <Stack spacing={1}>
+                        <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap" justifyContent="space-between">
+                          <Stack direction="row" spacing={1.25} alignItems="center" flexWrap="wrap">
+                            <Chip size="small" label={`#${num}`} sx={{ height: 22, fontWeight: 700 }} />
+                            {isDeleted && <Chip size="small" label="DELETED" color="error" sx={{ height: 22 }} />}
+                            <Chip size="small" label={tag} color={tag === "Faulty" ? "error" : "warning"} sx={{ height: 22 }} />
+                            {b?.label && <Chip size="small" label={b.label} variant="outlined" sx={{ height: 22 }} />}
+                            {typeof b?.confidence === "number" && (
+                                <Chip size="small" label={`Conf ${(b.confidence * 100).toFixed(0)}%`} variant="outlined" sx={{ height: 22 }} />
+                            )}
+                            {b?.isManual && <Chip size="small" label="Manual" color="info" variant="outlined" sx={{ height: 22 }} />}
+                            {rgb && <Box sx={{ width: 12, height: 12, borderRadius: 999, background: rgb, ml: 0.5 }} />}
+                            <Typography variant="body2" sx={{ opacity: 0.85 }}>
+                              {kind} • {coords}
+                            </Typography>
+                          </Stack>
+
+                          {!isDeleted && (
+                            <Stack direction="row" spacing={0.5}>
+                              <Tooltip title="Edit box position/size">
+                                <IconButton size="small" onClick={() => onEditBox(mapIndex)} color="primary">
+                                  <ZoomIn fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Edit properties">
+                                <IconButton size="small" onClick={() => onEdit(mapIndex)}>
+                                  <Edit fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Delete error">
+                                <IconButton size="small" color="error" onClick={() => onDelete(mapIndex)}>
+                                  <Delete fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            </Stack>
+                          )}
+                        </Stack>
+
+                        {b?.comment && (
+                          <Box sx={{ pl: 1, borderLeft: "2px solid rgba(102,120,255,0.3)" }}>
+                            <Stack direction="row" spacing={0.5} alignItems="center">
+                              <CommentIcon fontSize="small" sx={{ opacity: 0.6 }} />
+                              <Typography variant="body2" color="text.secondary">
+                                {b.comment}
+                              </Typography>
+                            </Stack>
+                          </Box>
                         )}
-                        {rgb && <Box sx={{ width: 12, height: 12, borderRadius: 999, background: rgb, ml: 0.5 }} />}
-                        <Typography variant="body2" sx={{ opacity: 0.85 }}>
-                          {kind} • {coords}
-                        </Typography>
+
+                        {isDeleted && b?.deletedAt && (
+                          <Typography variant="caption" color="error" sx={{ fontStyle: "italic" }}>
+                            Deleted on {new Date(b.deletedAt).toLocaleString()}
+                          </Typography>
+                        )}
+
+                        {b?.lastModified && (
+                          <Typography variant="caption" color="text.secondary" sx={{ opacity: 0.7 }}>
+                            Last modified: {new Date(b.lastModified).toLocaleString()}
+                          </Typography>
+                        )}
                       </Stack>
                     </Paper>
                 );
@@ -419,6 +483,9 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
                   style={{ width: "100%", height: "100%", objectFit: "fill", display: "block" }}
               />
               {Array.isArray(boxes) && boxes.map((b, i) => {
+                // Skip rendering deleted errors on the image
+                if (b.isDeleted) return null;
+                
                 const r = toRenderBox(b);
                 if (!r) return null;
 
@@ -516,6 +583,13 @@ export default function ComparePage() {
   // imageId -> { status: 'running'|'done'|'error'|'disabled', anomaly?: 'FAULTY'|'POTENTIAL'|'NORMAL' }
   const [analysisById, setAnalysisById] = useState({});
 
+  // Dialog states
+  const [drawDialogOpen, setDrawDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [boxEditDialogOpen, setBoxEditDialogOpen] = useState(false);
+  const [selectedErrorIndex, setSelectedErrorIndex] = useState(null);
+  const [savingError, setSavingError] = useState(false);
+
   const setAnalysis = (imgId, patch) =>
       setAnalysisById(prev => ({ ...prev, [imgId]: { ...(prev[imgId] || {}), ...patch } }));
 
@@ -530,8 +604,38 @@ export default function ComparePage() {
     try {
       const results = await Promise.allSettled(
           need.map(async (imgId) => {
-            const res = await fetchDetections(imgId);
-            return { imgId, boxes: res?.boxes || [] };
+            // Load AI detections
+            const aiRes = await fetchDetections(imgId);
+            const aiBoxes = aiRes?.boxes || [];
+            
+            // Load user-added/edited errors from backend
+            let userErrors = [];
+            try {
+              const userRes = await getErrors(imgId);
+              userErrors = Array.isArray(userRes?.data) ? userRes.data : [];
+            } catch (err) {
+              console.warn(`No user errors for image ${imgId}:`, err);
+            }
+            
+            // Merge AI detections with user errors
+            // User errors should override AI detections if they have the same regionId
+            const combinedBoxes = [...aiBoxes];
+            
+            userErrors.forEach(userErr => {
+              const existingIdx = combinedBoxes.findIndex(
+                b => (b.regionId || b.id) === (userErr.regionId || userErr.id)
+              );
+              
+              if (existingIdx >= 0) {
+                // Override existing AI detection with user modifications
+                combinedBoxes[existingIdx] = { ...combinedBoxes[existingIdx], ...userErr };
+              } else {
+                // New user-added error
+                combinedBoxes.push({ ...userErr, isManual: true });
+              }
+            });
+            
+            return { imgId, boxes: combinedBoxes };
           })
       );
 
@@ -630,6 +734,108 @@ export default function ComparePage() {
   // Boxes for the currently selected maintenance image (used in unified AI list)
   const currentMaintBoxes = boxesById[maint[idx]?.id] || [];
 
+  // Add indices to boxes for display
+  const numberedBoxes = currentMaintBoxes.map((box, i) => ({ ...box, idx: i + 1 }));
+
+  // Error management handlers
+  const handleAddError = async (newError) => {
+    if (!maint[idx]?.id) return;
+    
+    const imageId = maint[idx].id;
+    const currentBoxes = boxesById[imageId] || [];
+    
+    setSavingError(true);
+    try {
+      // Save to backend
+      const response = await saveError(imageId, newError);
+      const savedError = response?.data;
+      
+      // Update local state with server response (includes ID)
+      const updatedBoxes = [...currentBoxes, { 
+        ...newError, 
+        ...savedError,
+        idx: currentBoxes.length + 1 
+      }];
+      
+      setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
+      show("Error added and saved successfully", "success");
+    } catch (error) {
+      console.error("Failed to save error:", error);
+      show(error?.response?.data?.error || error?.message || "Failed to save error to server", "error");
+    } finally {
+      setSavingError(false);
+    }
+  };
+
+  const handleEditError = (index) => {
+    setSelectedErrorIndex(index);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditBox = (index) => {
+    setSelectedErrorIndex(index);
+    setBoxEditDialogOpen(true);
+  };
+
+  const handleSaveEditedError = async (updatedError) => {
+    if (!maint[idx]?.id) return;
+    
+    const imageId = maint[idx].id;
+    const currentBoxes = boxesById[imageId] || [];
+    
+    setSavingError(true);
+    try {
+      // Save to backend
+      if (updatedError.id || updatedError.regionId) {
+        await updateError(imageId, updatedError.id || updatedError.regionId, updatedError);
+      }
+      
+      // Update local state
+      const updatedBoxes = [...currentBoxes];
+      updatedBoxes[selectedErrorIndex] = updatedError;
+      
+      setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
+      show("Error updated and saved successfully", "success");
+    } catch (error) {
+      console.error("Failed to update error:", error);
+      show(error?.response?.data?.error || error?.message || "Failed to update error on server", "error");
+    } finally {
+      setSavingError(false);
+    }
+  };
+
+  const handleDeleteError = async (index) => {
+    if (!maint[idx]?.id) return;
+    
+    const imageId = maint[idx].id;
+    const currentBoxes = boxesById[imageId] || [];
+    const errorToDelete = currentBoxes[index];
+    
+    setSavingError(true);
+    try {
+      // Soft delete on backend
+      if (errorToDelete.id || errorToDelete.regionId) {
+        await deleteErrorApi(imageId, errorToDelete.id || errorToDelete.regionId);
+      }
+      
+      // Update local state - soft delete
+      const updatedBoxes = [...currentBoxes];
+      updatedBoxes[index] = {
+        ...updatedBoxes[index],
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+      };
+      
+      setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
+      show("Error marked as deleted", "warning");
+    } catch (error) {
+      console.error("Failed to delete error:", error);
+      show(error?.response?.data?.error || error?.message || "Failed to delete error on server", "error");
+    } finally {
+      setSavingError(false);
+    }
+  };
+
   return (
       <Container maxWidth="lg" sx={{ py: 3 }}>
         <Breadcrumbs sx={{ mb: 2 }}>
@@ -711,6 +917,19 @@ export default function ComparePage() {
                 Maintenance {maint.length ? `(${idx + 1}/${maint.length})` : ""}
               </Typography>
               <Stack direction="row" spacing={1}>
+                <Tooltip title="Add new error">
+                  <span>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<Add />}
+                      onClick={() => setDrawDialogOpen(true)}
+                      disabled={!maint.length}
+                    >
+                      Add Error
+                    </Button>
+                  </span>
+                </Tooltip>
                 <IconButton onClick={prev} disabled={!maint.length}><ArrowBackIosNew fontSize="small" /></IconButton>
                 <IconButton onClick={next} disabled={!maint.length}><ArrowForwardIos fontSize="small" /></IconButton>
               </Stack>
@@ -721,7 +940,7 @@ export default function ComparePage() {
                   <ZoomableImageWithBoxes
                       src={buildImageRawUrl(maint[idx].id)}
                       alt={maint[idx].filename || `maintenance-${maint[idx].id}`}
-                      boxes={boxesById[maint[idx].id] || []}
+                      boxes={numberedBoxes}
                       topLeft={maintBadge}
                       showControls
                   />
@@ -737,8 +956,46 @@ export default function ComparePage() {
 
         {/* Unified AI Faults section (below all images) */}
         <Box sx={{ mt: 2 }}>
-          <AIFaultList boxes={currentMaintBoxes} />
+          <AIFaultList 
+            boxes={numberedBoxes} 
+            onEdit={handleEditError}
+            onEditBox={handleEditBox}
+            onDelete={handleDeleteError}
+          />
         </Box>
+
+        {/* Dialogs */}
+        <ErrorDrawDialog
+          open={drawDialogOpen}
+          onClose={() => setDrawDialogOpen(false)}
+          onSave={handleAddError}
+          imageSrc={maint[idx] ? buildImageRawUrl(maint[idx].id) : ""}
+          imageId={maint[idx]?.id}
+        />
+
+        <ErrorEditDialog
+          open={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setSelectedErrorIndex(null);
+          }}
+          onSave={handleSaveEditedError}
+          error={selectedErrorIndex !== null ? numberedBoxes[selectedErrorIndex] : null}
+          errorIndex={selectedErrorIndex}
+        />
+
+        <ErrorBoxEditDialog
+          open={boxEditDialogOpen}
+          onClose={() => {
+            setBoxEditDialogOpen(false);
+            setSelectedErrorIndex(null);
+          }}
+          onSave={handleSaveEditedError}
+          imageSrc={maint[idx] ? buildImageRawUrl(maint[idx].id) : ""}
+          imageId={maint[idx]?.id}
+          error={selectedErrorIndex !== null ? numberedBoxes[selectedErrorIndex] : null}
+          errorIndex={selectedErrorIndex}
+        />
       </Container>
   );
 }

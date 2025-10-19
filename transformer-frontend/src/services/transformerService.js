@@ -23,6 +23,19 @@ export const anomalyResults = (id) => axiosClient.get(`${apiBase}/images/${id}/a
 export const uploadImage = (id, formData) =>
   axiosClient.post(`${apiBase}/${id}/images`, formData);
 
+// Error Management APIs
+export const saveError = (imageId, errorData) => 
+  axiosClient.post(`${apiBase}/images/${imageId}/errors`, errorData);
+
+export const updateError = (imageId, errorId, errorData) => 
+  axiosClient.put(`${apiBase}/images/${imageId}/errors/${errorId}`, errorData);
+
+export const deleteError = (imageId, errorId) => 
+  axiosClient.delete(`${apiBase}/images/${imageId}/errors/${errorId}`);
+
+export const getErrors = (imageId) => 
+  axiosClient.get(`${apiBase}/images/${imageId}/errors`);
+
 // Compare helpers (base64 endpoints) — note the /images segment
 export const getBaselineBase64 = (id) => axiosClient.get(`${apiBase}/${id}/images/baseline/base64`);
 export const getMaintenanceBase64 = (id) => axiosClient.get(`${apiBase}/${id}/images/maintenance/base64`);
