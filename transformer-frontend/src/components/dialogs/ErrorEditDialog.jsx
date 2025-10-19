@@ -24,16 +24,12 @@ import { Close } from "@mui/icons-material";
  */
 export default function ErrorEditDialog({ open, onClose, onSave, error, errorIndex, currentUser = "User" }) {
   const [status, setStatus] = useState("FAULTY");
-  const [label, setLabel] = useState("");
   const [comment, setComment] = useState("");
-  const [confidence, setConfidence] = useState(0.95);
 
   useEffect(() => {
     if (error) {
       setStatus(error.status || "FAULTY");
-      setLabel(error.label || "");
       setComment(error.comment || "");
-      setConfidence(error.confidence ?? 0.95);
     }
   }, [error]);
 
@@ -41,9 +37,8 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
     const updatedError = {
       ...error,
       status,
-      label,
       comment,
-      confidence: parseFloat(confidence),
+      confidence: null, // Remove confidence for manual edits
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       lastModified: new Date().toISOString(),
       lastModifiedBy: currentUser,
@@ -95,23 +90,6 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
               <MenuItem value="NORMAL">Normal</MenuItem>
             </Select>
           </FormControl>
-
-          <TextField
-            fullWidth
-            label="Type/Label"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g., Hotspot, Corrosion, Leak"
-          />
-
-          <TextField
-            fullWidth
-            label="Confidence"
-            type="number"
-            value={confidence}
-            onChange={(e) => setConfidence(e.target.value)}
-            inputProps={{ min: 0, max: 1, step: 0.05 }}
-          />
 
           <TextField
             fullWidth

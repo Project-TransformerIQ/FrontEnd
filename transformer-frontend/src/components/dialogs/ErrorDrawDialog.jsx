@@ -32,9 +32,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
   const [drawnRect, setDrawnRect] = useState(null);
 
   const [status, setStatus] = useState("FAULTY");
-  const [label, setLabel] = useState("Hotspot");
   const [comment, setComment] = useState("");
-  const [confidence, setConfidence] = useState(0.95);
 
   const [layout, setLayout] = useState({ ready: false, naturalW: 0, naturalH: 0, renderW: 0, renderH: 0 });
 
@@ -160,9 +158,9 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
       w,
       h,
       status,
-      label,
+      label: null,
       comment,
-      confidence: parseFloat(confidence),
+      confidence: null,
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       isManual: true,
       timestamp: new Date().toISOString(),
@@ -180,9 +178,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
     setIsDrawing(false);
     setStartPos(null);
     setStatus("FAULTY");
-    setLabel("Hotspot");
     setComment("");
-    setConfidence(0.95);
     onClose();
   };
 
@@ -241,23 +237,6 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
               <MenuItem value="POTENTIAL">Potential Faulty</MenuItem>
             </Select>
           </FormControl>
-
-          <TextField
-            fullWidth
-            label="Type/Label"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g., Hotspot, Corrosion, Leak"
-          />
-
-          <TextField
-            fullWidth
-            label="Confidence"
-            type="number"
-            value={confidence}
-            onChange={(e) => setConfidence(e.target.value)}
-            inputProps={{ min: 0, max: 1, step: 0.05 }}
-          />
 
           <TextField
             fullWidth

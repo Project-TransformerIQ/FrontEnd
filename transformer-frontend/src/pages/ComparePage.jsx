@@ -8,7 +8,7 @@ import {
 import {
   ArrowBack, ElectricalServices, Assessment, PowerInput,
   ArrowBackIosNew, ArrowForwardIos, ZoomIn, ZoomOut, RestartAlt,
-  Add, Edit, Delete, Comment as CommentIcon
+  Add, Delete, Comment as CommentIcon
 } from "@mui/icons-material";
 
 import {
@@ -23,7 +23,6 @@ import {
 } from "../services/transformerService";
 import useSnackbar from "../hooks/useSnackbar";
 import ErrorDrawDialog from "../components/dialogs/ErrorDrawDialog";
-import ErrorEditDialog from "../components/dialogs/ErrorEditDialog";
 import ErrorBoxEditDialog from "../components/dialogs/ErrorBoxEditDialog";
 
 /* ========================================================================
@@ -57,7 +56,7 @@ function anomalyFromBoxes(boxes = []) {
 }
 
 /* ===================== AI Faults list (under all images) ===================== */
-function AIFaultList({ boxes, onEdit, onDelete, onEditBox }) {
+function AIFaultList({ boxes, onDelete, onEditBox }) {
   const items = Array.isArray(boxes) ? boxes : [];
 
   const isNormalized = (b) =>
@@ -119,7 +118,7 @@ function AIFaultList({ boxes, onEdit, onDelete, onEditBox }) {
                             {isDeleted && <Chip size="small" label="DELETED" color="error" sx={{ height: 22 }} />}
                             <Chip size="small" label={tag} color={tag === "Faulty" ? "error" : "warning"} sx={{ height: 22 }} />
                             {b?.label && <Chip size="small" label={b.label} variant="outlined" sx={{ height: 22 }} />}
-                            {typeof b?.confidence === "number" && (
+                            {typeof b?.confidence === "number" && !b?.isManual && !b?.lastModifiedBy && (
                                 <Chip size="small" label={`Conf ${(b.confidence * 100).toFixed(0)}%`} variant="outlined" sx={{ height: 22 }} />
                             )}
                             {b?.isManual && <Chip size="small" label="Manual" color="info" variant="outlined" sx={{ height: 22 }} />}
@@ -134,11 +133,6 @@ function AIFaultList({ boxes, onEdit, onDelete, onEditBox }) {
                               <Tooltip title="Edit box position/size">
                                 <IconButton size="small" onClick={() => onEditBox(mapIndex)} color="primary">
                                   <ZoomIn fontSize="small" />
-                                </IconButton>
-                              </Tooltip>
-                              <Tooltip title="Edit properties">
-                                <IconButton size="small" onClick={() => onEdit(mapIndex)}>
-                                  <Edit fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Delete error">
@@ -536,7 +530,6 @@ export default function ComparePage() {
 
   // Dialog states
   const [drawDialogOpen, setDrawDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [boxEditDialogOpen, setBoxEditDialogOpen] = useState(false);
   const [selectedErrorIndex, setSelectedErrorIndex] = useState(null);
   const [savingError, setSavingError] = useState(false);
@@ -703,8 +696,9 @@ export default function ComparePage() {
     
     setSavingError(true);
     try {
-      // Save to backend
-      const response = await saveError(imageId, newError);
+      // Save to backend - ensure imageId is in the request body
+      const errorWithImageId = { ...newError, imageId };
+      const response = await saveError(imageId, errorWithImageId);
       const savedError = response?.data?.data || response?.data;
       
       // Update local state with server response (includes ID)
@@ -722,11 +716,6 @@ export default function ComparePage() {
     } finally {
       setSavingError(false);
     }
-  };
-
-  const handleEditError = (index) => {
-    setSelectedErrorIndex(index);
-    setEditDialogOpen(true);
   };
 
   const handleEditBox = (index) => {
@@ -914,8 +903,7 @@ export default function ComparePage() {
         {/* Unified AI Faults section (below all images) */}
         <Box sx={{ mt: 2 }}>
           <AIFaultList 
-            boxes={numberedBoxes} 
-            onEdit={handleEditError}
+            boxes={numberedBoxes}
             onEditBox={handleEditBox}
             onDelete={handleDeleteError}
           />
@@ -928,18 +916,6 @@ export default function ComparePage() {
           onSave={handleAddError}
           imageSrc={maint[idx] ? buildImageRawUrl(maint[idx].id) : ""}
           imageId={maint[idx]?.id}
-          currentUser={currentUser}
-        />
-
-        <ErrorEditDialog
-          open={editDialogOpen}
-          onClose={() => {
-            setEditDialogOpen(false);
-            setSelectedErrorIndex(null);
-          }}
-          onSave={handleSaveEditedError}
-          error={selectedErrorIndex !== null ? numberedBoxes[selectedErrorIndex] : null}
-          errorIndex={selectedErrorIndex}
           currentUser={currentUser}
         />
 
