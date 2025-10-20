@@ -39,11 +39,13 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
   // Form fields
   const [status, setStatus] = useState("FAULTY");
   const [comment, setComment] = useState("");
+  const [userId, setUserId] = useState(currentUser || "");
 
   useEffect(() => {
     if (open && error) {
       setStatus(error.status || "FAULTY");
       setComment(error.comment || "");
+      setUserId(error.lastModifiedBy || currentUser || "");
       
       // Initialize current box from error
       setCurrentBox({
@@ -327,7 +329,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
       confidence: null, // Remove confidence for manual edits
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       lastModified: new Date().toISOString(),
-      lastModifiedBy: currentUser,
+      lastModifiedBy: userId || "Anonymous",
       lastModifiedAt: new Date().toISOString(),
     };
 
@@ -341,6 +343,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
     setIsResizing(false);
     setResizeHandle(null);
     setDragStart(null);
+    setUserId(currentUser || "");
     onClose();
   };
 
@@ -405,6 +408,16 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
         )}
 
         <Stack spacing={2}>
+          <TextField
+            fullWidth
+            label="User ID"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="Enter your user ID"
+            required
+            helperText="Your user ID will be recorded as the last modifier of this error"
+          />
+
           <FormControl fullWidth>
             <InputLabel>Status</InputLabel>
             <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
@@ -428,7 +441,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
 
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">
+        <Button onClick={handleSave} variant="contained" disabled={!userId.trim()}>
           Save Changes
         </Button>
       </DialogActions>

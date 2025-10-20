@@ -33,6 +33,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
 
   const [status, setStatus] = useState("FAULTY");
   const [comment, setComment] = useState("");
+  const [userId, setUserId] = useState(currentUser || "");
 
   const [layout, setLayout] = useState({ ready: false, naturalW: 0, naturalH: 0, renderW: 0, renderH: 0 });
 
@@ -164,8 +165,10 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       isManual: true,
       timestamp: new Date().toISOString(),
-      createdBy: currentUser,
+      createdBy: userId || "Anonymous",
       createdAt: new Date().toISOString(),
+      lastModifiedBy: userId || "Anonymous",
+      lastModifiedAt: new Date().toISOString(),
     };
 
     onSave(newError);
@@ -179,6 +182,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
     setStartPos(null);
     setStatus("FAULTY");
     setComment("");
+    setUserId(currentUser || "");
     onClose();
   };
 
@@ -230,6 +234,16 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
         </Box>
 
         <Stack spacing={2}>
+          <TextField
+            fullWidth
+            label="User ID"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            placeholder="Enter your user ID"
+            required
+            helperText="Your user ID will be recorded as the creator of this error"
+          />
+
           <FormControl fullWidth>
             <InputLabel>Status</InputLabel>
             <Select value={status} onChange={(e) => setStatus(e.target.value)} label="Status">
@@ -252,7 +266,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
 
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!drawnRect}>
+        <Button onClick={handleSave} variant="contained" disabled={!drawnRect || !userId.trim()}>
           Save Error
         </Button>
       </DialogActions>

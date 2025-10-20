@@ -56,7 +56,7 @@ function anomalyFromBoxes(boxes = []) {
 }
 
 /* ===================== AI Faults list (under all images) ===================== */
-function AIFaultList({ boxes, onDelete, onEditBox }) {
+function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = false }) {
   const items = Array.isArray(boxes) ? boxes : [];
 
   const isNormalized = (b) =>
@@ -77,7 +77,19 @@ function AIFaultList({ boxes, onDelete, onEditBox }) {
 
   return (
       <Box sx={{ mt: 2.5 }}>
-        <Typography variant="h6" sx={{ mb: 1 }}>Detected Errors</Typography>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
+          <Typography variant="h6">Detected Errors</Typography>
+          {canAddError && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={onAddError}
+            >
+              Add Error
+            </Button>
+          )}
+        </Stack>
 
         {rows.length === 0 ? (
             <Typography variant="body2" color="text.secondary">
@@ -863,19 +875,6 @@ export default function ComparePage() {
                 Maintenance {maint.length ? `(${idx + 1}/${maint.length})` : ""}
               </Typography>
               <Stack direction="row" spacing={1}>
-                <Tooltip title="Add new error">
-                  <span>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<Add />}
-                      onClick={() => setDrawDialogOpen(true)}
-                      disabled={!maint.length}
-                    >
-                      Add Error
-                    </Button>
-                  </span>
-                </Tooltip>
                 <IconButton onClick={prev} disabled={!maint.length}><ArrowBackIosNew fontSize="small" /></IconButton>
                 <IconButton onClick={next} disabled={!maint.length}><ArrowForwardIos fontSize="small" /></IconButton>
               </Stack>
@@ -906,6 +905,8 @@ export default function ComparePage() {
             boxes={numberedBoxes}
             onEditBox={handleEditBox}
             onDelete={handleDeleteError}
+            onAddError={() => setDrawDialogOpen(true)}
+            canAddError={maint.length > 0}
           />
         </Box>
 
