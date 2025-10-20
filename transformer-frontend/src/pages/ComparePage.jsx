@@ -8,7 +8,7 @@ import {
 import {
   ArrowBack, ElectricalServices, Assessment, PowerInput,
   ArrowBackIosNew, ArrowForwardIos, ZoomIn, ZoomOut, RestartAlt,
-  Add, Delete, Comment as CommentIcon
+  Add, Delete, Comment as CommentIcon, ModelTraining, Edit
 } from "@mui/icons-material";
 
 import {
@@ -19,7 +19,8 @@ import {
   saveError,
   updateError,
   deleteError as deleteErrorApi,
-  getErrors
+  getErrors,
+  trainModel
 } from "../services/transformerService";
 import useSnackbar from "../hooks/useSnackbar";
 import ErrorDrawDialog from "../components/dialogs/ErrorDrawDialog";
@@ -144,7 +145,7 @@ function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = fal
                             <Stack direction="row" spacing={0.5}>
                               <Tooltip title="Edit box position/size">
                                 <IconButton size="small" onClick={() => onEditBox(mapIndex)} color="primary">
-                                  <ZoomIn fontSize="small" />
+                                  <Edit fontSize="small" />
                                 </IconButton>
                               </Tooltip>
                               <Tooltip title="Delete error">
@@ -545,6 +546,7 @@ export default function ComparePage() {
   const [boxEditDialogOpen, setBoxEditDialogOpen] = useState(false);
   const [selectedErrorIndex, setSelectedErrorIndex] = useState(null);
   const [savingError, setSavingError] = useState(false);
+  const [isTraining, setIsTraining] = useState(false);
 
   // User context - TODO: Replace with actual authentication
   const [currentUser] = useState("Admin"); // This should come from auth context/service
@@ -794,6 +796,30 @@ export default function ComparePage() {
     }
   };
 
+  const handleTrainModel = async () => {
+    if (!transformer?.id || !baseline?.id || !maint[idx]?.id) {
+      show("Cannot train: Missing transformer, baseline, or maintenance image", "error");
+      return;
+    }
+
+    setIsTraining(true);
+    try {
+      const requestBody = {
+        transformerId: transformer.id,
+        baselineImageId: baseline.id,
+        maintenanceImageId: maint[idx].id
+      };
+
+      await trainModel(transformer.id, requestBody);
+      show("Model training started successfully", "success");
+    } catch (error) {
+      console.error("Failed to train model:", error);
+      show(error?.response?.data?.error || error?.message || "Failed to start model training", "error");
+    } finally {
+      setIsTraining(false);
+    }
+  };
+
   return (
       <Container maxWidth="lg" sx={{ py: 3 }}>
         <Breadcrumbs sx={{ mb: 2 }}>
@@ -817,6 +843,15 @@ export default function ComparePage() {
             </Button>
             <Typography variant="h5">{title}</Typography>
           </Stack>
+          <Button 
+            startIcon={<ModelTraining />} 
+            variant="contained" 
+            color="primary"
+            onClick={handleTrainModel}
+            disabled={isTraining || !baseline?.id || !maint[idx]?.id}
+          >
+            {isTraining ? "Training..." : "Train Model"}
+          </Button>
         </Stack>
 
         {/* Header */}

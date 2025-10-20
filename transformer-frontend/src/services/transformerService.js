@@ -36,6 +36,10 @@ export const deleteError = (imageId, errorId) =>
 export const getErrors = (imageId) => 
   axiosClient.get(`${apiBase}/images/${imageId}/errors`);
 
+// Train Model API
+export const trainModel = (transformerId, data) => 
+  axiosClient.post(`${apiBase}/${transformerId}/train`, data);
+
 // Compare helpers (base64 endpoints) — note the /images segment
 export const getBaselineBase64 = (id) => axiosClient.get(`${apiBase}/${id}/images/baseline/base64`);
 export const getMaintenanceBase64 = (id) => axiosClient.get(`${apiBase}/${id}/images/maintenance/base64`);
