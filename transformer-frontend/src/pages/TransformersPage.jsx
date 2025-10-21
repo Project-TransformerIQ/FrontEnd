@@ -35,6 +35,7 @@ import {
   Map,
   Apartment,
   Grid3x3,
+  Logout,
 } from "@mui/icons-material";
 
 import TransformerFormDialog from "../components/TransformerFormDialog";
@@ -43,6 +44,7 @@ import EmptyState from "../components/EmptyState";
 import ImagePreviewDialog from "./ImagePreviewDialog";
 import useSnackbar from "../hooks/useSnackbar";
 import DeleteConfirmDialog from "../components/common/DeleteConfirmDialog";
+import { useUser } from "../contexts/UserContext";
 
 /** Pretty stat card (gradient, glass, hover lift) */
 function StatCard({ title, value, icon, gradient, accent }) {
@@ -122,6 +124,7 @@ function StatCard({ title, value, icon, gradient, accent }) {
 }
 
 export default function TransformersPage() {
+  const { currentUser, logout } = useUser();
   const [transformers, setTransformers] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -356,9 +359,28 @@ export default function TransformersPage() {
                   <Typography variant="h6" sx={{ opacity: 0.9 }}>
                     Monitor and manage electrical transformers with thermal inspection data
                   </Typography>
+                  <Typography variant="body2" sx={{ opacity: 0.85, fontWeight: 500 }}>
+                    Logged in as: {currentUser}
+                  </Typography>
                 </Stack>
 
                 <Stack direction="row" spacing={2}>
+                  <Button
+                    variant="outlined"
+                    size="large"
+                    startIcon={<Logout />}
+                    onClick={logout}
+                    sx={{ 
+                      color: "white", 
+                      borderColor: "rgba(255,255,255,0.5)",
+                      "&:hover": { 
+                        borderColor: "white",
+                        bgcolor: "rgba(255,255,255,0.1)"
+                      } 
+                    }}
+                  >
+                    Logout
+                  </Button>
                   <Button
                     variant="contained"
                     size="large"

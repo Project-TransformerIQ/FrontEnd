@@ -35,7 +35,7 @@ export default function MaintenanceUploadDialog({
     try {
       const meta = {
         imageType: IMAGE_TYPES.MAINTENANCE,
-        uploader: inspection.inspector || "Unknown",
+        uploader: inspection.inspector || "",
         inspectionId: inspection.id,
         envCondition: { weather },
       };

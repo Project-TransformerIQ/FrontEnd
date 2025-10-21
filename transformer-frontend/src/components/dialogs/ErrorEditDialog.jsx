@@ -18,22 +18,22 @@ import {
   Chip,
 } from "@mui/material";
 import { Close } from "@mui/icons-material";
+import { useUser } from "../../contexts/UserContext";
 
 /**
  * ErrorEditDialog - Dialog for editing an existing error
  */
-export default function ErrorEditDialog({ open, onClose, onSave, error, errorIndex, currentUser = "User" }) {
+export default function ErrorEditDialog({ open, onClose, onSave, error, errorIndex }) {
+  const { currentUser } = useUser();
   const [status, setStatus] = useState("FAULTY");
   const [comment, setComment] = useState("");
-  const [userId, setUserId] = useState(currentUser || "");
 
   useEffect(() => {
     if (error) {
       setStatus(error.status || "FAULTY");
       setComment(error.comment || "");
-      setUserId(error.lastModifiedBy || currentUser || "");
     }
-  }, [error, currentUser]);
+  }, [error]);
 
   const handleSave = () => {
     const updatedError = {
@@ -43,7 +43,7 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
       confidence: null, // Remove confidence for manual edits
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       lastModified: new Date().toISOString(),
-      lastModifiedBy: userId || "Anonymous",
+      lastModifiedBy: currentUser || "Anonymous",
       lastModifiedAt: new Date().toISOString(),
     };
 
@@ -87,11 +87,12 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
           <TextField
             fullWidth
             label="User ID"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="Enter your user ID"
-            required
-            helperText="Your user ID will be recorded as the last modifier of this error"
+            value={currentUser || ""}
+            InputProps={{
+              readOnly: true,
+            }}
+            disabled
+            helperText="Logged in as the modifier of this error"
           />
 
           <FormControl fullWidth>
@@ -131,7 +132,7 @@ export default function ErrorEditDialog({ open, onClose, onSave, error, errorInd
 
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!userId.trim()}>
+        <Button onClick={handleSave} variant="contained">
           Save Changes
         </Button>
       </DialogActions>

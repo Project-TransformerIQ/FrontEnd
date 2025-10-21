@@ -36,6 +36,12 @@ export const deleteError = (imageId, errorId) =>
 export const getErrors = (imageId) => 
   axiosClient.get(`${apiBase}/images/${imageId}/errors`);
 
+// Download Anomaly Comparison
+export const downloadAnomalyComparison = (imageId) => 
+  axiosClient.get(`${apiBase}/images/${imageId}/anomaly-comparison`, {
+    responseType: 'blob' // Important for file download
+  });
+
 // Train Model API
 export const trainModel = (transformerId, data) => 
   axiosClient.post(`${apiBase}/${transformerId}/train`, data);

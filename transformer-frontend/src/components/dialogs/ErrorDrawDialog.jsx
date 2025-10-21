@@ -18,14 +18,17 @@ import {
   Tooltip,
 } from "@mui/material";
 import { Close, RestartAlt } from "@mui/icons-material";
+import { useUser } from "../../contexts/UserContext";
 
 /**
  * ErrorDrawDialog - Dialog for drawing a new error box on an image
  * User clicks and drags to draw a rectangle
  */
-export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, imageId, currentUser = "User" }) {
+export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, imageId, existingErrors = [] }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
+  const { currentUser } = useUser();
+  
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPos, setStartPos] = useState(null);
   const [currentRect, setCurrentRect] = useState(null);
@@ -33,7 +36,6 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
 
   const [status, setStatus] = useState("FAULTY");
   const [comment, setComment] = useState("");
-  const [userId, setUserId] = useState(currentUser || "");
 
   const [layout, setLayout] = useState({ ready: false, naturalW: 0, naturalH: 0, renderW: 0, renderH: 0 });
 
@@ -72,11 +74,61 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, 0, 0, layout.renderW, layout.renderH);
 
-    // Draw the final rectangle if exists
+    const scale = layout.renderW / layout.naturalW;
+
+    // Draw existing errors (non-deleted ones)
+    if (existingErrors && Array.isArray(existingErrors)) {
+      existingErrors.forEach((error, idx) => {
+        if (error.isDeleted) return; // Skip deleted errors
+
+        // Convert from natural coordinates to render coordinates
+        const renderCx = error.cx * scale;
+        const renderCy = error.cy * scale;
+        const renderW = error.w * scale;
+        const renderH = error.h * scale;
+        const renderX = renderCx - renderW / 2;
+        const renderY = renderCy - renderH / 2;
+
+        // Determine color based on status only
+        const errorStatus = String(error.status || "").toUpperCase();
+        let strokeColor = "yellow"; // Default for POTENTIAL
+        if (errorStatus === "FAULTY") {
+          strokeColor = "red";
+        }
+
+        // Draw the box
+        ctx.strokeStyle = strokeColor;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(renderX, renderY, renderW, renderH);
+
+        // Draw semi-transparent fill
+        ctx.fillStyle = strokeColor === "red" ? "rgba(255,0,0,0.1)" : "rgba(255,255,0,0.1)";
+        ctx.fillRect(renderX, renderY, renderW, renderH);
+
+        // Draw index badge
+        const badgeSize = 20;
+        ctx.fillStyle = strokeColor === "red" ? "rgba(255,0,0,0.95)" : "rgba(255,255,0,0.95)";
+        ctx.beginPath();
+        ctx.arc(renderX - 10, renderY - 10, badgeSize / 2, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 12px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(error.idx || idx + 1, renderX - 10, renderY - 10);
+      });
+    }
+
+    // Draw the final rectangle if exists (new error being drawn)
     if (drawnRect) {
       ctx.strokeStyle = status === "FAULTY" ? "red" : "yellow";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 3;
       ctx.strokeRect(drawnRect.x, drawnRect.y, drawnRect.w, drawnRect.h);
+      
+      // Draw semi-transparent fill for new error
+      ctx.fillStyle = status === "FAULTY" ? "rgba(255,0,0,0.2)" : "rgba(255,255,0,0.2)";
+      ctx.fillRect(drawnRect.x, drawnRect.y, drawnRect.w, drawnRect.h);
     }
 
     // Draw current dragging rectangle
@@ -91,7 +143,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
 
   useEffect(() => {
     redrawCanvas();
-  }, [drawnRect, currentRect, layout, status]);
+  }, [drawnRect, currentRect, layout, status, existingErrors]);
 
   const handleMouseDown = (e) => {
     const canvas = canvasRef.current;
@@ -165,9 +217,9 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       isManual: true,
       timestamp: new Date().toISOString(),
-      createdBy: userId || "Anonymous",
+      createdBy: currentUser || "Anonymous",
       createdAt: new Date().toISOString(),
-      lastModifiedBy: userId || "Anonymous",
+      lastModifiedBy: currentUser || "Anonymous",
       lastModifiedAt: new Date().toISOString(),
     };
 
@@ -182,7 +234,6 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
     setStartPos(null);
     setStatus("FAULTY");
     setComment("");
-    setUserId(currentUser || "");
     onClose();
   };
 
@@ -237,11 +288,12 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
           <TextField
             fullWidth
             label="User ID"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="Enter your user ID"
-            required
-            helperText="Your user ID will be recorded as the creator of this error"
+            value={currentUser || ""}
+            InputProps={{
+              readOnly: true,
+            }}
+            disabled
+            helperText="Logged in as the creator of this error"
           />
 
           <FormControl fullWidth>
@@ -266,7 +318,7 @@ export default function ErrorDrawDialog({ open, onClose, onSave, imageSrc, image
 
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!drawnRect || !userId.trim()}>
+        <Button onClick={handleSave} variant="contained" disabled={!drawnRect}>
           Save Error
         </Button>
       </DialogActions>

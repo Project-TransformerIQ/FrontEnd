@@ -229,7 +229,7 @@ export default function TransformerInspectionsPage() {
                         </Avatar>
                         <Box>
                           <Typography variant="h5" sx={{ fontWeight: 700, mb: 1 }}>
-                            Transformer {transformer?.transformerNo || "Unknown"}
+                            Transformer {transformer?.transformerNo || ""}
                           </Typography>
                           <Typography variant="body1" sx={{ opacity: 0.9 }}>
                             ID: {transformer?.id ?? "-"} • Type: {transformer?.transformerType ?? "-"}

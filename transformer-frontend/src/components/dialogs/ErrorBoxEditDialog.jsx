@@ -19,14 +19,16 @@ import {
   Chip,
 } from "@mui/material";
 import { Close, RestartAlt, ZoomIn, ZoomOut } from "@mui/icons-material";
+import { useUser } from "../../contexts/UserContext";
 
 /**
  * ErrorBoxEditDialog - Dialog for editing error box position and size
  * Allows dragging to reposition and handles for resizing
  */
-export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, imageId, error, errorIndex, currentUser = "User" }) {
+export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, imageId, error, errorIndex, existingErrors = [] }) {
   const canvasRef = useRef(null);
   const imgRef = useRef(null);
+  const { currentUser } = useUser();
   
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
@@ -39,13 +41,11 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
   // Form fields
   const [status, setStatus] = useState("FAULTY");
   const [comment, setComment] = useState("");
-  const [userId, setUserId] = useState(currentUser || "");
 
   useEffect(() => {
     if (open && error) {
       setStatus(error.status || "FAULTY");
       setComment(error.comment || "");
-      setUserId(error.lastModifiedBy || currentUser || "");
       
       // Initialize current box from error
       setCurrentBox({
@@ -94,7 +94,54 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
 
     const scale = layout.scale || (layout.renderW / layout.naturalW);
     
-    // Convert natural coords to render coords
+    // Draw existing errors (except the one being edited)
+    if (existingErrors && Array.isArray(existingErrors)) {
+      existingErrors.forEach((err, idx) => {
+        // Skip the error being edited and deleted errors
+        if (idx === errorIndex || err.isDeleted) return;
+
+        const errRenderCx = err.cx * scale;
+        const errRenderCy = err.cy * scale;
+        const errRenderW = err.w * scale;
+        const errRenderH = err.h * scale;
+        const errRenderX = errRenderCx - errRenderW / 2;
+        const errRenderY = errRenderCy - errRenderH / 2;
+
+        // Determine color based on status only
+        const errorStatus = String(err.status || "").toUpperCase();
+        let strokeColor = "yellow"; // Default for POTENTIAL
+        if (errorStatus === "FAULTY") {
+          strokeColor = "red";
+        }
+
+        // Draw the box (lighter/dimmed)
+        ctx.strokeStyle = strokeColor;
+        ctx.globalAlpha = 0.4; // Make other errors semi-transparent
+        ctx.lineWidth = 2;
+        ctx.strokeRect(errRenderX, errRenderY, errRenderW, errRenderH);
+
+        // Draw semi-transparent fill
+        ctx.fillStyle = strokeColor === "red" ? "rgba(255,0,0,0.05)" : "rgba(255,255,0,0.05)";
+        ctx.fillRect(errRenderX, errRenderY, errRenderW, errRenderH);
+
+        // Draw index badge
+        const badgeSize = 18;
+        ctx.fillStyle = strokeColor === "red" ? "rgba(255,0,0,0.6)" : "rgba(255,255,0,0.6)";
+        ctx.beginPath();
+        ctx.arc(errRenderX - 10, errRenderY - 10, badgeSize / 2, 0, 2 * Math.PI);
+        ctx.fill();
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 11px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(err.idx || idx + 1, errRenderX - 10, errRenderY - 10);
+
+        ctx.globalAlpha = 1; // Reset alpha
+      });
+    }
+
+    // Convert natural coords to render coords for the current box being edited
     const renderCx = currentBox.cx * scale;
     const renderCy = currentBox.cy * scale;
     const renderW = currentBox.w * scale;
@@ -102,7 +149,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
     const renderX = renderCx - renderW / 2;
     const renderY = renderCy - renderH / 2;
 
-    // Draw the box
+    // Draw the box being edited (highlighted)
     ctx.strokeStyle = status === "FAULTY" ? "red" : "yellow";
     ctx.lineWidth = 3;
     ctx.strokeRect(renderX, renderY, renderW, renderH);
@@ -145,7 +192,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
 
   useEffect(() => {
     redrawCanvas();
-  }, [currentBox, layout, status]);
+  }, [currentBox, layout, status, existingErrors, errorIndex]);
 
   const getHandle = (mx, my) => {
     if (!currentBox || !layout.ready) return null;
@@ -329,7 +376,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
       confidence: null, // Remove confidence for manual edits
       colorRgb: status === "FAULTY" ? [255, 0, 0] : [255, 255, 0],
       lastModified: new Date().toISOString(),
-      lastModifiedBy: userId || "Anonymous",
+      lastModifiedBy: currentUser || "Anonymous",
       lastModifiedAt: new Date().toISOString(),
     };
 
@@ -343,7 +390,6 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
     setIsResizing(false);
     setResizeHandle(null);
     setDragStart(null);
-    setUserId(currentUser || "");
     onClose();
   };
 
@@ -411,11 +457,12 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
           <TextField
             fullWidth
             label="User ID"
-            value={userId}
-            onChange={(e) => setUserId(e.target.value)}
-            placeholder="Enter your user ID"
-            required
-            helperText="Your user ID will be recorded as the last modifier of this error"
+            value={currentUser || ""}
+            InputProps={{
+              readOnly: true,
+            }}
+            disabled
+            helperText="Logged in as the modifier of this error"
           />
 
           <FormControl fullWidth>
@@ -441,7 +488,7 @@ export default function ErrorBoxEditDialog({ open, onClose, onSave, imageSrc, im
 
       <DialogActions>
         <Button onClick={handleClose}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!userId.trim()}>
+        <Button onClick={handleSave} variant="contained">
           Save Changes
         </Button>
       </DialogActions>

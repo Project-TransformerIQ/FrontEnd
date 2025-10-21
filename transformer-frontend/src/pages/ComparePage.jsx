@@ -3,12 +3,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Box, Container, Stack, Typography, Button, Card, CardContent, Chip,
-  Breadcrumbs, Link, Avatar, LinearProgress, IconButton, Paper, Tooltip, CircularProgress
+  Breadcrumbs, Link, Avatar, LinearProgress, IconButton, Paper, Tooltip, CircularProgress,
+  Switch, FormControlLabel
 } from "@mui/material";
 import {
   ArrowBack, ElectricalServices, Assessment, PowerInput,
   ArrowBackIosNew, ArrowForwardIos, ZoomIn, ZoomOut, RestartAlt,
-  Add, Delete, Comment as CommentIcon, ModelTraining, Edit
+  Add, Delete, Comment as CommentIcon, ModelTraining, Edit, Download
 } from "@mui/icons-material";
 
 import {
@@ -20,11 +21,13 @@ import {
   updateError,
   deleteError as deleteErrorApi,
   getErrors,
-  trainModel
+  trainModel,
+  downloadAnomalyComparison
 } from "../services/transformerService";
 import useSnackbar from "../hooks/useSnackbar";
 import ErrorDrawDialog from "../components/dialogs/ErrorDrawDialog";
 import ErrorBoxEditDialog from "../components/dialogs/ErrorBoxEditDialog";
+import { useUser } from "../contexts/UserContext";
 
 /* ========================================================================
    Simplified: All errors (AI-detected + user-added) are stored in the same
@@ -57,7 +60,20 @@ function anomalyFromBoxes(boxes = []) {
 }
 
 /* ===================== AI Faults list (under all images) ===================== */
-function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = false }) {
+function AIFaultList({ 
+  boxes, 
+  onDelete, 
+  onEditBox, 
+  onAddError, 
+  onDownload, 
+  onTrainModel, 
+  autoTrain,
+  onAutoTrainChange,
+  hasUnsavedEdits,
+  canAddError = false, 
+  isDownloading = false, 
+  isTraining = false 
+}) {
   const items = Array.isArray(boxes) ? boxes : [];
 
   const isNormalized = (b) =>
@@ -80,16 +96,56 @@ function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = fal
       <Box sx={{ mt: 2.5 }}>
         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
           <Typography variant="h6">Detected Errors</Typography>
-          {canAddError && (
-            <Button
-              size="small"
-              variant="outlined"
-              startIcon={<Add />}
-              onClick={onAddError}
-            >
-              Add Error
-            </Button>
-          )}
+          <Stack direction="row" spacing={1} alignItems="center">
+            {onDownload && (
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={isDownloading ? <CircularProgress size={16} /> : <Download />}
+                onClick={onDownload}
+                disabled={isDownloading}
+              >
+                Download
+              </Button>
+            )}
+            {onTrainModel && (
+              <>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={autoTrain}
+                      onChange={(e) => onAutoTrainChange(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label={<Typography variant="caption">Auto-train</Typography>}
+                  sx={{ mr: 0, ml: 1 }}
+                />
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={isTraining ? <CircularProgress size={16} /> : <ModelTraining />}
+                  onClick={onTrainModel}
+                  disabled={isTraining || !hasUnsavedEdits}
+                >
+                  Train Model
+                </Button>
+              </>
+            )}
+            {canAddError && (
+              <>
+                <Box sx={{ width: 16 }} /> {/* Spacer */}
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<Add />}
+                  onClick={onAddError}
+                >
+                  Add Error
+                </Button>
+              </>
+            )}
+          </Stack>
         </Stack>
 
         {rows.length === 0 ? (
@@ -101,10 +157,10 @@ function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = fal
               {rows.map((b, mapIndex) => {
                 const num = b?.idx ?? (mapIndex + 1);
                 const tag = String(b?.status || "").toUpperCase() === "FAULTY" ? "Faulty" : "Potential";
-                const rgb =
-                    Array.isArray(b?.colorRgb) && b.colorRgb.length === 3
-                        ? `rgb(${b.colorRgb.join(",")})`
-                        : undefined;
+                
+                // Determine color based on status only
+                const status = String(b?.status || "").toUpperCase();
+                const colorDot = status === "FAULTY" ? "rgb(255,0,0)" : "rgb(255,255,0)";
 
                 const coords = isNormalized(b)
                     ? `cx=${(b.cx * 100).toFixed(1)}%, cy=${(b.cy * 100).toFixed(1)}%, w=${(b.w * 100).toFixed(1)}%, h=${(b.h * 100).toFixed(1)}%`
@@ -112,6 +168,30 @@ function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = fal
 
                 const kind = b?.isPoint ? "point" : "box";
                 const isDeleted = b?.isDeleted;
+
+                // Determine annotation type
+                const getAnnotationType = () => {
+                  if (!b?.isManual || b?.isManual === false) {
+                    // AI-detected, not modified
+                    if (b?.createdBy === "ai-system" || !b?.createdBy) {
+                      return null; // No annotation tag
+                    }
+                  }
+                  
+                  if (b?.isManual === true) {
+                    if (b?.createdBy === "ai-system") {
+                      // AI-detected but manually edited
+                      return { label: "EDITED", color: "warning" };
+                    } else {
+                      // Manually added by user
+                      return { label: "ADDED", color: "success" };
+                    }
+                  }
+                  
+                  return null;
+                };
+
+                const annotationType = getAnnotationType();
 
                 return (
                     <Paper
@@ -130,12 +210,22 @@ function AIFaultList({ boxes, onDelete, onEditBox, onAddError, canAddError = fal
                             <Chip size="small" label={`#${num}`} sx={{ height: 22, fontWeight: 700 }} />
                             {isDeleted && <Chip size="small" label="DELETED" color="error" sx={{ height: 22 }} />}
                             <Chip size="small" label={tag} color={tag === "Faulty" ? "error" : "warning"} sx={{ height: 22 }} />
-                            {b?.label && <Chip size="small" label={b.label} variant="outlined" sx={{ height: 22 }} />}
+                            {annotationType && (
+                              <Chip 
+                                size="small" 
+                                label={annotationType.label} 
+                                color={annotationType.color} 
+                                variant="outlined" 
+                                sx={{ height: 22 }} 
+                              />
+                            )}
+                            {b?.label && b.label !== "Unknown" && (
+                              <Chip size="small" label={b.label} variant="outlined" sx={{ height: 22 }} />
+                            )}
                             {typeof b?.confidence === "number" && !b?.isManual && !b?.lastModifiedBy && (
                                 <Chip size="small" label={`Conf ${(b.confidence * 100).toFixed(0)}%`} variant="outlined" sx={{ height: 22 }} />
                             )}
-                            {b?.isManual && <Chip size="small" label="Manual" color="info" variant="outlined" sx={{ height: 22 }} />}
-                            {rgb && <Box sx={{ width: 12, height: 12, borderRadius: 999, background: rgb, ml: 0.5 }} />}
+                            <Box sx={{ width: 12, height: 12, borderRadius: 999, background: colorDot, ml: 0.5 }} />
                             <Typography variant="body2" sx={{ opacity: 0.85 }}>
                               {kind} • {coords}
                             </Typography>
@@ -374,14 +464,9 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
   };
 
   const borderFor = (box) => {
-    if (box?.colorRgb && box.colorRgb.length === 3) {
-      return `2px solid rgb(${box.colorRgb.join(",")})`;
-    }
-    if (box?.color) {
-      return `2px solid ${box.color}`;
-    }
+    // Ignore colorRgb, use status only
     const s = String(box?.status || "").toUpperCase();
-    return (s === "FAULTY" || s === "RED") ? "2px solid red" : "2px solid yellow";
+    return s === "FAULTY" ? "2px solid red" : "2px solid yellow";
   };
 
   return (
@@ -447,9 +532,11 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
                 const r = toRenderBox(b);
                 if (!r) return null;
 
-                const rgb = Array.isArray(b.colorRgb) && b.colorRgb.length === 3
-                    ? b.colorRgb.join(",")
-                    : null;
+                // Determine color based on status only
+                const status = String(b.status || "").toUpperCase();
+                const borderColor = status === "FAULTY" ? "red" : "yellow";
+                const fillColor = status === "FAULTY" ? "rgba(255,0,0,0.15)" : "rgba(255,255,0,0.15)";
+                const badgeColor = status === "FAULTY" ? "rgba(255,0,0,0.95)" : "rgba(255,255,0,0.95)";
 
                 return (
                     <>
@@ -463,10 +550,10 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
                             width: r.width,
                             height: r.height,
                             border: b.isPoint
-                                ? (rgb ? `2px solid rgba(${rgb}, 0.9)` : "2px solid red")
-                                : (rgb ? `2px solid rgb(${rgb})` : "2px solid yellow"),
+                                ? `2px solid ${borderColor}`
+                                : `2px solid ${borderColor}`,
                             borderRadius: b.isPoint ? "999px" : 0.5,
-                            backgroundColor: b.isPoint && rgb ? `rgba(${rgb}, 0.15)` : "transparent",
+                            backgroundColor: b.isPoint ? fillColor : "transparent",
                             boxShadow: b.isPoint
                                 ? "0 0 0 1px rgba(0,0,0,0.25) inset, 0 0 8px rgba(0,0,0,0.3)"
                                 : "0 0 0 1px rgba(0,0,0,0.25) inset",
@@ -490,7 +577,7 @@ function ZoomableImageWithBoxes({ src, alt, boxes, topLeft, showControls = true 
                             width: 20,
                             height: 20,
                             borderRadius: "999px",
-                            backgroundColor: rgb ? `rgba(${rgb}, 0.95)` : "rgba(255,0,0,0.95)",
+                            backgroundColor: badgeColor,
                             color: "white",
                             fontSize: 12,
                             fontWeight: 700,
@@ -528,6 +615,7 @@ export default function ComparePage() {
   const navigate = useNavigate();
   const { state } = useLocation() || {};
   const { show } = useSnackbar();
+  const { currentUser } = useUser();
 
   const [transformer, setTransformer] = useState(state?.transformer || null);
   const [inspection, setInspection] = useState(state?.inspection || null);
@@ -547,9 +635,14 @@ export default function ComparePage() {
   const [selectedErrorIndex, setSelectedErrorIndex] = useState(null);
   const [savingError, setSavingError] = useState(false);
   const [isTraining, setIsTraining] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
-  // User context - TODO: Replace with actual authentication
-  const [currentUser] = useState("Admin"); // This should come from auth context/service
+  // Edit tracking and auto-train state
+  const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false);
+  const [autoTrain, setAutoTrain] = useState(() => {
+    const saved = localStorage.getItem('autoTrainEnabled');
+    return saved ? JSON.parse(saved) : false;
+  });
 
   const setAnalysis = (imgId, patch) =>
       setAnalysisById(prev => ({ ...prev, [imgId]: { ...(prev[imgId] || {}), ...patch } }));
@@ -678,6 +771,25 @@ export default function ComparePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, maint]);
 
+  // Auto-train on navigation away if enabled and has unsaved edits
+  useEffect(() => {
+    return () => {
+      // Cleanup function runs when component unmounts (navigating away)
+      if (autoTrain && hasUnsavedEdits && transformer?.id && baseline?.id && maint[idx]?.id) {
+        const requestBody = {
+          transformerId: transformer.id,
+          baselineImageId: baseline.id,
+          maintenanceImageId: maint[idx].id
+        };
+        
+        // Use fetch instead of async/await since cleanup can't be async
+        trainModel(transformer.id, requestBody).catch(err => {
+          console.error("Auto-train failed on navigation:", err);
+        });
+      }
+    };
+  }, [autoTrain, hasUnsavedEdits, transformer?.id, baseline?.id, maint, idx]);
+
   const title = useMemo(
       () => inspection?.title ? `Compare: ${inspection.title}` : "Compare: Baseline vs Maintenance",
       [inspection]
@@ -723,6 +835,7 @@ export default function ComparePage() {
       }];
       
       setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
+      setHasUnsavedEdits(true); // Mark as having unsaved edits
       show("Error added and saved successfully", "success");
     } catch (error) {
       console.error("Failed to save error:", error);
@@ -755,6 +868,7 @@ export default function ComparePage() {
       updatedBoxes[selectedErrorIndex] = updatedError;
       
       setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
+      setHasUnsavedEdits(true); // Mark as having unsaved edits
       show("Error updated and saved successfully", "success");
     } catch (error) {
       console.error("Failed to update error:", error);
@@ -787,6 +901,7 @@ export default function ComparePage() {
       };
       
       setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
+      setHasUnsavedEdits(true); // Mark as having unsaved edits
       show("Error marked as deleted", "warning");
     } catch (error) {
       console.error("Failed to delete error:", error);
@@ -794,6 +909,11 @@ export default function ComparePage() {
     } finally {
       setSavingError(false);
     }
+  };
+
+  const handleAutoTrainChange = (checked) => {
+    setAutoTrain(checked);
+    localStorage.setItem('autoTrainEnabled', JSON.stringify(checked));
   };
 
   const handleTrainModel = async () => {
@@ -811,12 +931,48 @@ export default function ComparePage() {
       };
 
       await trainModel(transformer.id, requestBody);
+      setHasUnsavedEdits(false); // Reset unsaved edits after successful training
       show("Model training started successfully", "success");
     } catch (error) {
       console.error("Failed to train model:", error);
       show(error?.response?.data?.error || error?.message || "Failed to start model training", "error");
     } finally {
       setIsTraining(false);
+    }
+  };
+
+  const handleDownloadComparison = async () => {
+    if (!maint[idx]?.id) {
+      show("No maintenance image selected", "error");
+      return;
+    }
+
+    const imageId = maint[idx].id;
+    setIsDownloading(true);
+    try {
+      const response = await downloadAnomalyComparison(imageId);
+      
+      // Create a blob from the response
+      const blob = new Blob([response.data], { type: 'application/json' });
+      
+      // Create a download link and trigger it
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `anomaly-comparison-image-${imageId}.json`;
+      document.body.appendChild(link);
+      link.click();
+      
+      // Cleanup
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      show("Anomaly comparison downloaded successfully", "success");
+    } catch (error) {
+      console.error("Failed to download anomaly comparison:", error);
+      show(error?.response?.data?.error || error?.message || "Failed to download anomaly comparison", "error");
+    } finally {
+      setIsDownloading(false);
     }
   };
 
@@ -843,15 +999,6 @@ export default function ComparePage() {
             </Button>
             <Typography variant="h5">{title}</Typography>
           </Stack>
-          <Button 
-            startIcon={<ModelTraining />} 
-            variant="contained" 
-            color="primary"
-            onClick={handleTrainModel}
-            disabled={isTraining || !baseline?.id || !maint[idx]?.id}
-          >
-            {isTraining ? "Training..." : "Train Model"}
-          </Button>
         </Stack>
 
         {/* Header */}
@@ -864,7 +1011,7 @@ export default function ComparePage() {
                 </Avatar>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                    Transformer {transformer?.transformerNo || "Unknown"}
+                    Transformer {transformer?.transformerNo || ""}
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.9 }}>
                     ID: {transformer?.id ?? "-"} • Type: {transformer?.transformerType ?? "-"}
@@ -941,7 +1088,14 @@ export default function ComparePage() {
             onEditBox={handleEditBox}
             onDelete={handleDeleteError}
             onAddError={() => setDrawDialogOpen(true)}
+            onDownload={handleDownloadComparison}
+            onTrainModel={handleTrainModel}
             canAddError={maint.length > 0}
+            isDownloading={isDownloading}
+            isTraining={isTraining}
+            autoTrain={autoTrain}
+            onAutoTrainChange={handleAutoTrainChange}
+            hasUnsavedEdits={hasUnsavedEdits}
           />
         </Box>
 
@@ -952,7 +1106,7 @@ export default function ComparePage() {
           onSave={handleAddError}
           imageSrc={maint[idx] ? buildImageRawUrl(maint[idx].id) : ""}
           imageId={maint[idx]?.id}
-          currentUser={currentUser}
+          existingErrors={numberedBoxes}
         />
 
         <ErrorBoxEditDialog
@@ -966,7 +1120,7 @@ export default function ComparePage() {
           imageId={maint[idx]?.id}
           error={selectedErrorIndex !== null ? numberedBoxes[selectedErrorIndex] : null}
           errorIndex={selectedErrorIndex}
-          currentUser={currentUser}
+          existingErrors={numberedBoxes}
         />
       </Container>
   );

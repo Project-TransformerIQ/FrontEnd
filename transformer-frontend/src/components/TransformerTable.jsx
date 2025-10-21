@@ -212,7 +212,7 @@ export default function TransformerTable({
                 {/* Region */}
                 <TableCell>
                   <Chip
-                    label={t.region || "Unknown"}
+                    label={t.region || ""}
                     sx={{
                       bgcolor: alpha(getRegionColor(t.region), 0.1),
                       color: getRegionColor(t.region),
@@ -231,7 +231,7 @@ export default function TransformerTable({
                 <TableCell>
                   <Stack spacing={1}>
                     <Chip
-                      label={t.transformerType || "Unknown"}
+                      label={t.transformerType || ""}
                       color={typeConfig.color}
                       variant="filled"
                       size="medium"
