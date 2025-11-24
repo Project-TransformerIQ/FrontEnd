@@ -55,3 +55,38 @@ export const buildImageRawUrl = (imageId) => {
   const apiPrefix = (axiosClient.defaults.baseURL || "/api").replace(/\/$/, "");
   return `${apiPrefix}${apiBase}/images/${imageId}/raw`;
 };
+// ------------------------------------------------------
+//  FR4.x — Maintenance Record APIs
+// ------------------------------------------------------
+
+// FR4.1 — Generate Maintenance Record Form
+export const getMaintenanceRecordForm = (
+  transformerId,
+  { inspectionId = null, imageId = null } = {}
+) => {
+  let url = `${apiBase}/${transformerId}/maintenance-record-form`;
+
+  const params = new URLSearchParams();
+  if (inspectionId) params.append("inspectionId", inspectionId);
+  if (imageId) params.append("imageId", imageId);
+
+  if (params.toString().length > 0) url += `?${params.toString()}`;
+
+  return axiosClient.get(url);
+};
+
+// FR4.2 / FR4.3 — Create new maintenance record
+export const createMaintenanceRecord = (transformerId, payload) =>
+  axiosClient.post(`${apiBase}/${transformerId}/maintenance-records`, payload);
+
+// Update an existing record
+export const updateMaintenanceRecord = (recordId, payload) =>
+  axiosClient.put(`${apiBase}/maintenance-records/${recordId}`, payload);
+
+// FR4.3 — List all records for a transformer
+export const listMaintenanceRecords = (transformerId) =>
+  axiosClient.get(`${apiBase}/${transformerId}/maintenance-records`);
+
+// Retrieve single maintenance record (optional but useful)
+export const getMaintenanceRecord = (recordId) =>
+  axiosClient.get(`${apiBase}/maintenance-records/${recordId}`);

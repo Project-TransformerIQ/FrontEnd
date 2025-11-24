@@ -10,7 +10,7 @@ import {
 import {
   ArrowBack, Add, ElectricalServices, PowerInput,
   Assessment, CheckCircle, Schedule, Engineering, Search,
-  CloudUpload, PhotoCamera
+  CloudUpload, PhotoCamera, History 
 } from "@mui/icons-material";
 
 import useSnackbar from "../hooks/useSnackbar";
@@ -330,7 +330,27 @@ export default function TransformerInspectionsPage() {
                           >
                             Compare
                           </Button>
-                          <Button size="small" variant="text" color="error" onClick={() => { setInspectionToDelete(it); setDeleteDialog(true); }}>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<History />}
+                            onClick={() =>
+                              navigate(
+                                `/transformers/${id}/inspections/${it.id}/maintenance-records`,
+                                { state: { transformer, inspection: it } }
+                              )
+                            }
+                          >
+                            Maintenance Records
+                          </Button>
+
+                          
+                          <Button 
+                            size="small" 
+                            variant="text" 
+                            color="error" 
+                            onClick={() => { setInspectionToDelete(it); setDeleteDialog(true); }}
+                          >
                             Delete
                           </Button>
                         </Stack>

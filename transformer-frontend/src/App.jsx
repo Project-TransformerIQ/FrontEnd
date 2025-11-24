@@ -6,12 +6,12 @@ import ImageUploadPage from "./pages/ImageUploadPage";
 import TransformerInspectionsPage from "./pages/TransformerInspectionsPage";
 import ComparePage from "./pages/ComparePage";
 import LoginPage from "./pages/LoginPage";
+import MaintenanceRecordPage from "./pages/MaintenanceRecordPage"; // ⬅️ NEW
 import "./App.css";
 
 function AppContent() {
   const { currentUser, login } = useUser();
 
-  // Show login page if no user is logged in
   if (!currentUser) {
     return <LoginPage onLogin={login} />;
   }
@@ -23,6 +23,11 @@ function AppContent() {
         <Route path="/upload" element={<ImageUploadPage />} />
         <Route path="/transformers/:id/inspections" element={<TransformerInspectionsPage />} />
         <Route path="/transformers/:id/inspections/:inspectionId/compare" element={<ComparePage />} />
+        {/* ⬇️ NEW route for FR4.x maintenance records */}
+        <Route
+          path="/transformers/:id/inspections/:inspectionId/maintenance-records"
+          element={<MaintenanceRecordPage />}
+        />
       </Routes>
     </Router>
   );
