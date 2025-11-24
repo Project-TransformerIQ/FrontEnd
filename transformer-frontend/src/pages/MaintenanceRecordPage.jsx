@@ -45,6 +45,7 @@ import {
 } from "../services/transformerService";
 
 import useSnackbar from "../hooks/useSnackbar";
+import ZoomableImageWithBoxes from "../components/common/ZoomableImageWithBoxes";
 
 export default function MaintenanceRecordPage() {
   const { id, inspectionId } = useParams();
@@ -269,6 +270,32 @@ export default function MaintenanceRecordPage() {
   const transformer = formPayload?.transformer || transformerFromState;
   const inspection = formPayload?.inspection || inspectionFromState;
   const maintenanceImage = formPayload?.maintenanceImage;
+  const maintenanceBoxes = useMemo(() => {
+    if (!formPayload?.anomalies) return [];
+
+    return formPayload.anomalies
+      .map((a, i) => {
+        if (!a.boundingBox) return null;
+        const { x, y, width, height } = a.boundingBox;
+
+        // convert top-left box => center-based box expected by ZoomableImageWithBoxes
+        const cx = x + width / 2;
+        const cy = y + height / 2;
+
+        return {
+          idx: i + 1,
+          cx,
+          cy,
+          w: width,
+          h: height,
+          status:
+            String(a.tag || a.type || "").toUpperCase().includes("FAULT")
+              ? "FAULTY"
+              : "POTENTIAL",
+        };
+      })
+      .filter(Boolean);
+  }, [formPayload?.anomalies]);
 
   const filteredHistory = useMemo(() => {
     if (!inspectionId) return history;
@@ -401,40 +428,24 @@ export default function MaintenanceRecordPage() {
             <CardContent>
               {maintenanceImage ? (
                 <Grid container spacing={2}>
+                  
                   <Grid item xs={12} sm={5}>
-                    <Paper
-                      variant="outlined"
-                      sx={{
-                        p: 1,
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        minHeight: 200,
-                      }}
-                    >
-                      <img
-                        src={buildImageRawUrl(
-                          maintenanceImage.id
-                        )}
-                        alt={maintenanceImage.filename}
-                        style={{
-                          maxWidth: "100%",
-                          maxHeight: 260,
-                          objectFit: "contain",
-                        }}
-                      />
-                    </Paper>
-                    <Typography
+                  <ZoomableImageWithBoxes
+                      src={buildImageRawUrl(maintenanceImage.id)}
+                      alt={maintenanceImage.filename}
+                      boxes={maintenanceBoxes}
+                      showControls={false} // or true if you want zoom/pan here as well
+                  />
+                  <Typography
                       variant="caption"
                       color="text.secondary"
                       sx={{ mt: 1, display: "block" }}
-                    >
+                  >
                       {maintenanceImage.filename} • Uploaded:{" "}
-                      {new Date(
-                        maintenanceImage.createdAt
-                      ).toLocaleString()}
-                    </Typography>
+                      {new Date(maintenanceImage.createdAt).toLocaleString()}
+                  </Typography>
                   </Grid>
+
                   <Grid item xs={12} sm={7}>
                     {formPayload?.anomalies &&
                     formPayload.anomalies.length > 0 ? (
