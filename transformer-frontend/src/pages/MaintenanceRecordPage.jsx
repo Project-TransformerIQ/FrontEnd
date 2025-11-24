@@ -9,7 +9,6 @@ import {
   Link,
   Card,
   CardContent,
-  CardHeader,
   Grid,
   Stack,
   TextField,
@@ -21,11 +20,13 @@ import {
   Snackbar,
   Alert,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
-  Tooltip,
-  Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
 } from "@mui/material";
 import {
   ElectricalServices,
@@ -34,6 +35,9 @@ import {
   History,
   Engineering,
   CheckCircle,
+  Add,
+  Remove,
+  Description,
 } from "@mui/icons-material";
 
 import {
@@ -52,7 +56,7 @@ export default function MaintenanceRecordPage() {
   const navigate = useNavigate();
   const locationState = useLocation().state;
 
-  const [formPayload, setFormPayload] = useState(null); // data from form endpoint
+  const [formPayload, setFormPayload] = useState(null);
   const [loadingForm, setLoadingForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -61,14 +65,12 @@ export default function MaintenanceRecordPage() {
 
   const { snackbar, show, close } = useSnackbar();
 
-  // Local editable state
   const [inspectorName, setInspectorName] = useState("");
   const [status, setStatus] = useState("");
-  const [inspectionTimestamp, setInspectionTimestamp] = useState(""); // ISO string for datetime-local
+  const [inspectionTimestamp, setInspectionTimestamp] = useState("");
   const [recommendedAction, setRecommendedAction] = useState("");
   const [additionalRemarks, setAdditionalRemarks] = useState("");
 
-  // simple key/value electrical readings
   const [readings, setReadings] = useState([
     { key: "voltage", value: "" },
     { key: "current", value: "" },
@@ -87,12 +89,9 @@ export default function MaintenanceRecordPage() {
     [formPayload]
   );
 
-  // Helper to convert backend ISO timestamp to datetime-local compatible value
   const toDateTimeLocal = (iso) => {
     if (!iso) return "";
-    // e.g. "2025-11-24T21:13:45.123" -> "2025-11-24T21:13"
     const noMs = iso.split(".")[0];
-    // ensure at least minutes
     return noMs.length >= 16 ? noMs.slice(0, 16) : noMs;
   };
 
@@ -101,12 +100,10 @@ export default function MaintenanceRecordPage() {
       setLoadingForm(true);
       const res = await getMaintenanceRecordForm(id, {
         inspectionId,
-        // imageId not provided -> backend picks latest maintenance image for this transformer/inspection
       });
       const data = res.data;
       setFormPayload(data);
 
-      // init editable fields
       const record = data.existingRecord;
       const inspection = data.inspection || inspectionFromState;
 
@@ -214,7 +211,6 @@ export default function MaintenanceRecordPage() {
       const inspection = formPayload.inspection || inspectionFromState;
 
       if (!existingRecord) {
-        // CREATE
         const payload = {
           transformerId: Number(id),
           inspectionId: inspection?.id || null,
@@ -232,7 +228,6 @@ export default function MaintenanceRecordPage() {
         await createMaintenanceRecord(id, payload);
         show("Maintenance record created successfully");
       } else {
-        // UPDATE
         const payload = {
           id: existingRecord.id,
           inspectionId: inspection?.id || null,
@@ -278,7 +273,6 @@ export default function MaintenanceRecordPage() {
         if (!a.boundingBox) return null;
         const { x, y, width, height } = a.boundingBox;
 
-        // convert top-left box => center-based box expected by ZoomableImageWithBoxes
         const cx = x + width / 2;
         const cy = y + height / 2;
 
@@ -299,465 +293,624 @@ export default function MaintenanceRecordPage() {
 
   const filteredHistory = useMemo(() => {
     if (!inspectionId) return history;
-    // show all records, but visually mark those that belong to this inspection
     return history;
   }, [history, inspectionId]);
 
+  const getStatusColor = (statusValue) => {
+    switch (statusValue) {
+      case "OK":
+        return "#e8f5e9";
+      case "NEEDS_MAINTENANCE":
+        return "#fff3e0";
+      case "URGENT_ATTENTION":
+        return "#ffebee";
+      default:
+        return "#f5f5f5";
+    }
+  };
+
+  const getStatusLabel = (statusValue) => {
+    switch (statusValue) {
+      case "OK":
+        return "Operational";
+      case "NEEDS_MAINTENANCE":
+        return "Maintenance Required";
+      case "URGENT_ATTENTION":
+        return "Urgent Attention";
+      default:
+        return statusValue;
+    }
+  };
+
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {loadingForm && <LinearProgress sx={{ mb: 2 }} />}
+    <Box sx={{ bgcolor: "#f8f9fa", minHeight: "100vh", py: 4 }}>
+      <Container maxWidth="lg">
+        {loadingForm && <LinearProgress sx={{ mb: 2 }} />}
 
-      {/* Breadcrumbs */}
-      <Breadcrumbs sx={{ mb: 3 }}>
-        <Link
-          component="button"
-          onClick={() => navigate("/")}
-          sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+        {/* Report Header */}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 4, 
+            mb: 3, 
+            borderTop: "4px solid #1565c0",
+            bgcolor: "white"
+          }}
         >
-          <ElectricalServices fontSize="small" />
-          Transformers
-        </Link>
-        <Link
-          component="button"
-          onClick={() =>
-            navigate(`/transformers/${id}/inspections`, {
-              state: { transformer },
-            })
-          }
-          sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-        >
-          <Assessment fontSize="small" />
-          Inspections
-        </Link>
-        <Typography
-          color="text.primary"
-          sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
-        >
-          <History fontSize="small" />
-          Maintenance Record
-        </Typography>
-      </Breadcrumbs>
-
-      {/* Header */}
-      <Stack
-        direction="row"
-        spacing={2}
-        alignItems="center"
-        sx={{ mb: 3 }}
-      >
-        <Button
-          variant="outlined"
-          startIcon={<ArrowBack />}
-          onClick={() =>
-            navigate(`/transformers/${id}/inspections`, {
-              state: { transformer },
-            })
-          }
-        >
-          Back
-        </Button>
-        <Box sx={{ flex: 1 }}>
-          <Typography variant="h4" fontWeight={700}>
-            Maintenance Record
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Review system-detected anomalies and add engineer
-            comments and actions.
-          </Typography>
-        </Box>
-      </Stack>
-
-      <Grid container spacing={3}>
-        {/* Left: System-generated + Editable form */}
-        <Grid item xs={12} md={8}>
-          <Card sx={{ mb: 3 }}>
-            <CardHeader
-              title="Transformer & Inspection"
-              subheader="System-generated metadata (read-only)"
-            />
-            <CardContent>
-              {transformer ? (
-                <Stack spacing={1}>
-                  <Typography variant="subtitle1">
-                    Transformer {transformer.transformerNo}
-                  </Typography>
-                  <Typography variant="body2">
-                    ID: {transformer.id ?? "-"} • Type:{" "}
-                    {transformer.transformerType ?? "-"}
-                  </Typography>
-                  <Typography variant="body2">
-                    Pole: {transformer.poleNo ?? "-"} • Region:{" "}
-                    {transformer.region ?? "-"}
-                  </Typography>
-                </Stack>
-              ) : (
-                <Typography color="text.secondary">
-                  Transformer information not available.
+          <Stack direction="row" spacing={3} alignItems="flex-start" sx={{ mb: 3 }}>
+            <Description sx={{ fontSize: 48, color: "#1565c0", mt: 0.5 }} />
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h4" fontWeight={700} sx={{ color: "#1565c0", mb: 1, letterSpacing: '0.5px' }}>
+                TRANSFORMER MAINTENANCE REPORT
+              </Typography>
+              <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+                Official technical inspection and maintenance documentation
+              </Typography>
+              <Breadcrumbs separator="/" sx={{ fontSize: "0.875rem" }}>
+                <Link
+                  component="button"
+                  onClick={() => navigate("/")}
+                  underline="hover"
+                  sx={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: 0.5,
+                    color: "#1565c0",
+                  }}
+                >
+                  <ElectricalServices fontSize="small" />
+                  Transformers
+                </Link>
+                <Link
+                  component="button"
+                  onClick={() =>
+                    navigate(`/transformers/${id}/inspections`, {
+                      state: { transformer },
+                    })
+                  }
+                  underline="hover"
+                  sx={{ 
+                    display: "flex", 
+                    alignItems: "center", 
+                    gap: 0.5,
+                    color: "#1565c0",
+                  }}
+                >
+                  <Assessment fontSize="small" />
+                  Inspections
+                </Link>
+                <Typography
+                  color="text.primary"
+                  sx={{ display: "flex", alignItems: "center", gap: 0.5 }}
+                >
+                  Maintenance Record
                 </Typography>
-              )}
+              </Breadcrumbs>
+            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBack />}
+              onClick={() =>
+                navigate(`/transformers/${id}/inspections`, {
+                  state: { transformer },
+                })
+              }
+              sx={{ 
+                borderColor: "#1565c0",
+                color: "#1565c0",
+                borderWidth: 2,
+                fontWeight: 600,
+                "&:hover": {
+                  borderColor: "#0d47a1",
+                  borderWidth: 2,
+                  bgcolor: "#e3f2fd"
+                }
+              }}
+            >
+              Back
+            </Button>
+          </Stack>
+        </Paper>
 
-              <Divider sx={{ my: 2 }} />
+        {/* Section 1: Transformer Information */}
+        <Paper elevation={0} sx={{ mb: 3, border: "1px solid #e0e0e0" }}>
+          <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ color: "white", letterSpacing: '0.5px' }}>
+              1. TRANSFORMER INFORMATION
+            </Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            {transformer ? (
+              <TableContainer>
+                <Table>
+                  <TableBody>
+                    <TableRow>
+                      <TableCell sx={{ width: '35%', fontWeight: 700, bgcolor: '#f8f9fa', borderRight: '1px solid #e0e0e0' }}>
+                        Transformer Number
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {transformer.transformerNo}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#f8f9fa', borderRight: '1px solid #e0e0e0' }}>
+                        Equipment ID
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {transformer.id ?? "-"}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#f8f9fa', borderRight: '1px solid #e0e0e0' }}>
+                        Transformer Type
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {transformer.transformerType ?? "-"}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#f8f9fa', borderRight: '1px solid #e0e0e0' }}>
+                        Pole Number
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {transformer.poleNo ?? "-"}
+                      </TableCell>
+                    </TableRow>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 700, bgcolor: '#f8f9fa', borderRight: '1px solid #e0e0e0' }}>
+                        Region
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 500 }}>
+                        {transformer.region ?? "-"}
+                      </TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Typography color="text.secondary">Transformer information not available.</Typography>
+            )}
 
-              {inspection ? (
-                <Stack spacing={0.5}>
-                  <Typography variant="subtitle2">
-                    Inspection: {inspection.title}
+            {inspection && (
+              <>
+                <Divider sx={{ my: 3 }} />
+                <Box sx={{ bgcolor: '#f8f9fa', p: 2, borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                  <Typography variant="subtitle2" fontWeight={700} gutterBottom sx={{ color: '#1565c0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    Inspection Reference
                   </Typography>
-                  <Typography variant="body2">
-                    Inspector: {inspection.inspector}
+                  <Typography variant="body1" fontWeight={600} gutterBottom>
+                    {inspection.title}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    <strong>Inspector:</strong> {inspection.inspector}
                   </Typography>
                   {inspection.notes && (
-                    <Typography variant="body2">
-                      Notes: {inspection.notes}
+                    <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                      <strong>Notes:</strong> {inspection.notes}
                     </Typography>
                   )}
-                </Stack>
-              ) : (
-                <Typography color="text.secondary">
-                  Inspection details not available.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+                </Box>
+              </>
+            )}
+          </Box>
+        </Paper>
 
-          <Card sx={{ mb: 3 }}>
-            <CardHeader
-              title="Maintenance Image & Anomalies"
-              subheader="Thermal image and detected anomaly regions"
-            />
-            <CardContent>
-              {maintenanceImage ? (
-                <Grid container spacing={2}>
-                  
-                  <Grid item xs={12} sm={5}>
-                  <ZoomableImageWithBoxes
-                      src={buildImageRawUrl(maintenanceImage.id)}
-                      alt={maintenanceImage.filename}
-                      boxes={maintenanceBoxes}
-                      showControls={false} // or true if you want zoom/pan here as well
-                  />
-                  <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      sx={{ mt: 1, display: "block" }}
-                  >
-                      {maintenanceImage.filename} • Uploaded:{" "}
-                      {new Date(maintenanceImage.createdAt).toLocaleString()}
-                  </Typography>
-                  </Grid>
-
-                  <Grid item xs={12} sm={7}>
-                    {formPayload?.anomalies &&
-                    formPayload.anomalies.length > 0 ? (
-                      <List dense>
-                        {formPayload.anomalies.map((a) => (
-                          <ListItem key={a.dbId}>
-                            <ListItemText
-                              primary={
-                                <>
-                                  {a.type || "Anomaly"}{" "}
-                                  {a.tag && (
-                                    <Chip
-                                      size="small"
-                                      label={a.tag}
-                                      sx={{ ml: 1 }}
-                                    />
-                                  )}
-                                </>
-                              }
-                              secondary={
-                                a.boundingBox
-                                  ? `Region ID: ${
-                                      a.regionId ?? "N/A"
-                                    } • Box: (${a.boundingBox.x}, ${
-                                      a.boundingBox.y
-                                    }) ${a.boundingBox.width}x${
-                                      a.boundingBox.height
-                                    }`
-                                  : `Region ID: ${
-                                      a.regionId ?? "N/A"
-                                    }`
-                              }
-                            />
-                          </ListItem>
-                        ))}
-                      </List>
-                    ) : (
-                      <Typography color="text.secondary">
-                        No anomaly regions found for this image.
-                      </Typography>
-                    )}
-                  </Grid>
+        {/* Section 2: Thermal Analysis */}
+        <Paper elevation={0} sx={{ mb: 3, border: "1px solid #e0e0e0" }}>
+          <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ color: "white", letterSpacing: '0.5px' }}>
+              2. THERMAL IMAGING ANALYSIS
+            </Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            {maintenanceImage ? (
+              <Grid container spacing={4}>
+                <Grid item xs={12} md={6}>
+                  <Box sx={{ border: '2px solid #e0e0e0', borderRadius: 1, overflow: 'hidden', bgcolor: '#000' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
+                      <ZoomableImageWithBoxes
+                        src={buildImageRawUrl(maintenanceImage.id)}
+                        alt={maintenanceImage.filename}
+                        boxes={maintenanceBoxes}
+                        showControls={false}
+                      />
+                    </Box>
+                  </Box>
+                  <Box sx={{ mt: 2, p: 2, bgcolor: "#f8f9fa", borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="caption" sx={{ textTransform: "uppercase", fontWeight: 700, color: '#555', display: 'block', mb: 0.5 }}>
+                      Image Reference
+                    </Typography>
+                    <Typography variant="body2" fontWeight={500} gutterBottom>
+                      {maintenanceImage.filename}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      <strong>Captured:</strong> {new Date(maintenanceImage.createdAt).toLocaleString()}
+                    </Typography>
+                  </Box>
                 </Grid>
-              ) : (
-                <Typography color="text.secondary">
-                  No maintenance image available for this form.
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+                <Grid item xs={12} md={6}>
+                  <Typography variant="subtitle1" fontWeight={700} gutterBottom sx={{ textTransform: "uppercase", color: "#1565c0", letterSpacing: '0.5px', mb: 2 }}>
+                    Detected Anomalies
+                  </Typography>
+                  {formPayload?.anomalies && formPayload.anomalies.length > 0 ? (
+                    <TableContainer sx={{ border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: "#1565c0" }}>
+                            <TableCell sx={{ fontWeight: 700, color: 'white' }}>Type</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: 'white' }}>Classification</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: 'white' }}>Region ID</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {formPayload.anomalies.map((a, idx) => (
+                            <TableRow key={a.dbId} sx={{ '&:nth-of-type(odd)': { bgcolor: '#f8f9fa' } }}>
+                              <TableCell sx={{ fontWeight: 500 }}>{a.type || "Anomaly"}</TableCell>
+                              <TableCell>
+                                {a.tag && (
+                                  <Chip
+                                    size="small"
+                                    label={a.tag}
+                                    sx={{ 
+                                      height: 24,
+                                      fontWeight: 600,
+                                      bgcolor: a.tag.toUpperCase().includes("FAULT") ? "#ffebee" : "#fff3e0",
+                                      color: a.tag.toUpperCase().includes("FAULT") ? "#c62828" : "#e65100",
+                                      border: '1px solid',
+                                      borderColor: a.tag.toUpperCase().includes("FAULT") ? "#ef9a9a" : "#ffcc80"
+                                    }}
+                                  />
+                                )}
+                              </TableCell>
+                              <TableCell sx={{ fontFamily: 'monospace' }}>
+                                {a.regionId ?? "N/A"}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Box sx={{ p: 3, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e0e0e0', textAlign: 'center' }}>
+                      <Typography color="text.secondary" variant="body2">
+                        No anomalies detected in thermal scan.
+                      </Typography>
+                    </Box>
+                  )}
+                </Grid>
+              </Grid>
+            ) : (
+              <Typography color="text.secondary">No thermal image available.</Typography>
+            )}
+          </Box>
+        </Paper>
 
-          <Card>
-            <CardHeader
-              title="Engineer Input"
-              subheader="Editable maintenance record fields"
-            />
-            <CardContent>
-              <Stack spacing={2}>
+        {/* Section 3: Inspection Details */}
+        <Paper elevation={0} sx={{ mb: 3, border: "1px solid #e0e0e0" }}>
+          <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ color: "white", letterSpacing: '0.5px' }}>
+              3. INSPECTION DETAILS
+            </Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ textTransform: "uppercase", fontWeight: 700, color: '#555', display: 'block', mb: 1 }}>
+                  Inspector Name *
+                </Typography>
                 <TextField
-                  label="Inspector Name"
                   value={inspectorName}
-                  onChange={(e) =>
-                    setInspectorName(e.target.value)
-                  }
+                  onChange={(e) => setInspectorName(e.target.value)}
                   required
                   fullWidth
+                  placeholder="Enter inspector name"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: "white",
+                      fontWeight: 500
+                    }
+                  }}
                 />
-
+              </Grid>
+              <Grid item xs={12} md={6}>
+                <Typography variant="caption" sx={{ textTransform: "uppercase", fontWeight: 700, color: '#555', display: 'block', mb: 1 }}>
+                  Inspection Timestamp
+                </Typography>
                 <TextField
-                  label="Inspection Timestamp"
                   type="datetime-local"
                   value={inspectionTimestamp}
-                  onChange={(e) =>
-                    setInspectionTimestamp(e.target.value)
-                  }
-                  InputLabelProps={{
-                    shrink: true,
-                  }}
+                  onChange={(e) => setInspectionTimestamp(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
                   fullWidth
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: "white",
+                      fontWeight: 500
+                    }
+                  }}
                 />
-
+              </Grid>
+              <Grid item xs={12}>
+                <Typography variant="caption" sx={{ textTransform: "uppercase", fontWeight: 700, color: '#555', display: 'block', mb: 1 }}>
+                  Transformer Status *
+                </Typography>
                 <TextField
                   select
-                  label="Status of Transformer"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   required
                   fullWidth
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: status ? getStatusColor(status) : "white",
+                      fontWeight: 600
+                    }
+                  }}
                 >
                   {allowedStatuses.map((s) => (
-                    <MenuItem key={s} value={s}>
-                      {s === "OK"
-                        ? "OK"
-                        : s === "NEEDS_MAINTENANCE"
-                        ? "Needs Maintenance"
-                        : s === "URGENT_ATTENTION"
-                        ? "Urgent Attention"
-                        : s}
+                    <MenuItem key={s} value={s} sx={{ fontWeight: 500 }}>
+                      {getStatusLabel(s)}
                     </MenuItem>
                   ))}
                 </TextField>
+              </Grid>
+            </Grid>
+          </Box>
+        </Paper>
 
-                <Box>
-                  <Typography
-                    variant="subtitle2"
-                    sx={{ mb: 1 }}
-                  >
-                    Electrical Readings
-                  </Typography>
-                  <Stack spacing={1}>
-                    {readings.map((r, idx) => (
-                      <Stack
-                        key={idx}
-                        direction="row"
-                        spacing={1}
-                      >
+        {/* Section 4: Electrical Measurements */}
+        <Paper elevation={0} sx={{ mb: 3, border: "1px solid #e0e0e0" }}>
+          <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ color: "white", letterSpacing: '0.5px' }}>
+              4. ELECTRICAL MEASUREMENTS
+            </Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            <TableContainer sx={{ border: '1px solid #e0e0e0', borderRadius: 1 }}>
+              <Table>
+                <TableHead>
+                  <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+                    <TableCell sx={{ fontWeight: 700, width: '40%' }}>Parameter</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Measured Value</TableCell>
+                    <TableCell width={100}></TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {readings.map((r, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>
                         <TextField
-                          label="Key"
                           value={r.key}
                           onChange={(e) =>
-                            handleReadingChange(
-                              idx,
-                              "key",
-                              e.target.value
-                            )
+                            handleReadingChange(idx, "key", e.target.value)
                           }
-                          size="small"
-                          sx={{ minWidth: 140 }}
+                          fullWidth
+                          placeholder="e.g., Voltage, Current, Temperature"
+                          sx={{
+                            "& .MuiOutlinedInput-root": {
+                              bgcolor: "white",
+                              fontWeight: 500
+                            }
+                          }}
                         />
+                      </TableCell>
+                      <TableCell>
                         <TextField
-                          label="Value"
                           value={r.value}
                           onChange={(e) =>
-                            handleReadingChange(
-                              idx,
-                              "value",
-                              e.target.value
-                            )
+                            handleReadingChange(idx, "value", e.target.value)
                           }
-                          size="small"
-                          sx={{ flex: 1 }}
+                          fullWidth
+                          placeholder="e.g., 230V, 15A, 75°C"
+                          sx={{
+                            "& .MuiOutlinedInput-root": {
+                              bgcolor: "white",
+                              fontWeight: 500
+                            }
+                          }}
                         />
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() =>
-                            removeReadingRow(idx)
-                          }
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton
+                          onClick={() => removeReadingRow(idx)}
+                          sx={{ 
+                            color: "#d32f2f",
+                            "&:hover": { bgcolor: "#ffebee" }
+                          }}
                         >
-                          Remove
-                        </Button>
-                      </Stack>
-                    ))}
-                    <Button
-                      size="small"
-                      onClick={addReadingRow}
-                    >
-                      Add Reading
-                    </Button>
-                  </Stack>
-                </Box>
+                          <Remove />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            <Button
+              startIcon={<Add />}
+              onClick={addReadingRow}
+              sx={{ mt: 2, color: "#1565c0", fontWeight: 600 }}
+            >
+              Add Measurement Row
+            </Button>
+          </Box>
+        </Paper>
 
+        {/* Section 5: Recommendations */}
+        <Paper elevation={0} sx={{ mb: 3, border: "1px solid #e0e0e0" }}>
+          <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
+            <Typography variant="h6" fontWeight={700} sx={{ color: "white", letterSpacing: '0.5px' }}>
+              5. RECOMMENDATIONS & REMARKS
+            </Typography>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            <Stack spacing={3}>
+              <Box>
+                <Typography variant="caption" sx={{ textTransform: "uppercase", fontWeight: 700, color: '#555', display: 'block', mb: 1 }}>
+                  Recommended Action
+                </Typography>
                 <TextField
-                  label="Recommended Action"
                   value={recommendedAction}
-                  onChange={(e) =>
-                    setRecommendedAction(e.target.value)
-                  }
+                  onChange={(e) => setRecommendedAction(e.target.value)}
                   multiline
-                  minRows={3}
+                  minRows={4}
                   fullWidth
-                />
-
-                <TextField
-                  label="Additional Remarks"
-                  value={additionalRemarks}
-                  onChange={(e) =>
-                    setAdditionalRemarks(e.target.value)
-                  }
-                  multiline
-                  minRows={3}
-                  fullWidth
-                />
-
-                <Box sx={{ textAlign: "right", mt: 1 }}>
-                  <Button
-                    variant="contained"
-                    startIcon={
-                      existingRecord ? (
-                        <CheckCircle />
-                      ) : (
-                        <Engineering />
-                      )
+                  placeholder="Describe recommended maintenance actions, repairs, or follow-up procedures required..."
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: "white"
                     }
-                    onClick={handleSave}
-                    disabled={saving || loadingForm}
-                  >
-                    {existingRecord
-                      ? "Update Record"
-                      : "Save Record"}
-                  </Button>
-                </Box>
-              </Stack>
-            </CardContent>
-          </Card>
-        </Grid>
+                  }}
+                />
+              </Box>
+              <Box>
+                <Typography variant="caption" sx={{ textTransform: "uppercase", fontWeight: 700, color: '#555', display: 'block', mb: 1 }}>
+                  Additional Remarks
+                </Typography>
+                <TextField
+                  value={additionalRemarks}
+                  onChange={(e) => setAdditionalRemarks(e.target.value)}
+                  multiline
+                  minRows={4}
+                  fullWidth
+                  placeholder="Any additional observations, safety concerns, or technical notes..."
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      bgcolor: "white"
+                    }
+                  }}
+                />
+              </Box>
+            </Stack>
+          </Box>
+        </Paper>
 
-        {/* Right: History */}
-        <Grid item xs={12} md={4}>
-          <Card>
-            <CardHeader
-              avatar={
-                <Avatar>
-                  <History />
-                </Avatar>
+        {/* Save Button */}
+        <Box sx={{ display: "flex", justifyContent: "flex-end", mb: 3 }}>
+          <Button
+            variant="contained"
+            size="large"
+            startIcon={existingRecord ? <CheckCircle /> : <Engineering />}
+            onClick={handleSave}
+            disabled={saving || loadingForm}
+            sx={{
+              bgcolor: "#1565c0",
+              px: 5,
+              py: 1.5,
+              fontWeight: 700,
+              fontSize: '1rem',
+              letterSpacing: '0.5px',
+              "&:hover": {
+                bgcolor: "#0d47a1"
+              },
+              "&:disabled": {
+                bgcolor: "#90caf9"
               }
-              title="Maintenance History"
-              subheader="All records for this transformer"
-            />
-            <CardContent>
-              {loadingHistory ? (
-                <LinearProgress />
-              ) : filteredHistory.length > 0 ? (
-                <List dense>
-                  {filteredHistory.map((rec) => (
-                    <ListItem
-                      key={rec.id}
-                      disableGutters
-                      sx={{ mb: 1 }}
-                    >
-                      <Paper
-                        variant="outlined"
-                        sx={{
-                          p: 1,
-                          width: "100%",
+            }}
+          >
+            {existingRecord ? "UPDATE REPORT" : "SUBMIT REPORT"}
+          </Button>
+        </Box>
+
+        {/* Section 6: Maintenance History */}
+        <Paper elevation={0} sx={{ border: "1px solid #e0e0e0" }}>
+          <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <History sx={{ color: "white" }} />
+              <Typography variant="h6" fontWeight={700} sx={{ color: "white", letterSpacing: '0.5px' }}>
+                6. MAINTENANCE HISTORY
+              </Typography>
+            </Stack>
+          </Box>
+          <Box sx={{ p: 3 }}>
+            {loadingHistory ? (
+              <LinearProgress />
+            ) : filteredHistory.length > 0 ? (
+              <TableContainer sx={{ border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "#f8f9fa" }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Date & Time</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Inspector</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Notes</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filteredHistory.map((rec) => (
+                      <TableRow 
+                        key={rec.id}
+                        sx={{ 
+                          '&:nth-of-type(odd)': { bgcolor: '#f8f9fa' },
+                          bgcolor: String(rec.inspectionId) === String(inspectionId) ? '#e3f2fd' : undefined
                         }}
                       >
-                        <Stack
-                          direction="row"
-                          justifyContent="space-between"
-                          alignItems="center"
-                        >
-                          <Box>
-                            <Typography
-                              variant="subtitle2"
-                            >
-                              {rec.status}
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                            >
-                              Inspector:{" "}
-                              {rec.inspectorName ||
-                                "-"}
-                            </Typography>
-                            {rec.inspectionTimestamp && (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                {new Date(
-                                  rec.inspectionTimestamp
-                                ).toLocaleString()}
-                              </Typography>
-                            )}
-                          </Box>
-                          {String(rec.inspectionId) ===
-                            String(
-                              inspectionId
-                            ) && (
-                            <Tooltip title="This record belongs to the current inspection">
-                              <Chip
-                                size="small"
-                                color="primary"
-                                label="Current Inspection"
-                              />
-                            </Tooltip>
+                        <TableCell sx={{ fontWeight: 500 }}>
+                          {rec.inspectionTimestamp 
+                            ? new Date(rec.inspectionTimestamp).toLocaleString()
+                            : "-"}
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 500 }}>
+                          {rec.inspectorName || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={getStatusLabel(rec.status)}
+                            size="small"
+                            sx={{
+                              bgcolor: getStatusColor(rec.status),
+                              fontWeight: 600,
+                              border: '1px solid',
+                              borderColor: rec.status === 'OK' ? '#81c784' : rec.status === 'NEEDS_MAINTENANCE' ? '#ffb74d' : '#e57373'
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {String(rec.inspectionId) === String(inspectionId) && (
+                            <Chip
+                              label="Current"
+                              size="small"
+                              sx={{
+                                bgcolor: '#1565c0',
+                                color: 'white',
+                                fontWeight: 600
+                              }}
+                            />
                           )}
-                        </Stack>
-                      </Paper>
-                    </ListItem>
-                  ))}
-                </List>
-              ) : (
-                <Typography color="text.secondary">
-                  No maintenance records found yet for this
-                  transformer.
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Box sx={{ p: 4, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e0e0e0', textAlign: 'center' }}>
+                <Typography color="text.secondary" variant="body1">
+                  No previous maintenance records found for this transformer.
                 </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+              </Box>
+            )}
+          </Box>
+        </Paper>
 
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={3500}
-        onClose={close}
-        anchorOrigin={{
-          vertical: "bottom",
-          horizontal: "right",
-        }}
-      >
-        <Alert
+        <Snackbar
+          open={snackbar.open}
+          autoHideDuration={3500}
           onClose={close}
-          severity={snackbar.severity}
-          variant="filled"
+          anchorOrigin={{
+            vertical: "bottom",
+            horizontal: "right",
+          }}
         >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </Container>
+          <Alert
+            onClose={close}
+            severity={snackbar.severity}
+            variant="filled"
+          >
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      </Container>
+    </Box>
   );
 }
