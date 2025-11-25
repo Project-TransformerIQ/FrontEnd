@@ -194,10 +194,33 @@ export default function TransformerInspectionsPage() {
               </Box>
 
               <Stack direction="row" spacing={2}>
-                <Button variant="outlined" startIcon={<PhotoCamera />} onClick={() => setOpenBaseline(true)}>
+                <Button
+                  variant="outlined"
+                  startIcon={<PhotoCamera />}
+                  onClick={() => setOpenBaseline(true)}
+                >
                   Upload Baseline
                 </Button>
-                <Button variant="contained" startIcon={<Add />} onClick={() => setOpenDialog(true)}>
+
+                <Button
+                  variant="outlined"
+                  startIcon={<History />}
+                  onClick={() =>
+                    navigate(`/transformers/${id}/maintenance-records`, {
+                      state: { transformer },
+                    })
+                  
+                  
+                  }
+                >
+                  Maintenance Records
+                </Button>
+
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={() => setOpenDialog(true)}
+                >
                   Create New Inspection
                 </Button>
               </Stack>
@@ -341,7 +364,7 @@ export default function TransformerInspectionsPage() {
                               )
                             }
                           >
-                            Maintenance Records
+                            Maintenance Form
                           </Button>
 
                           

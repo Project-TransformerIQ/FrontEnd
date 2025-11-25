@@ -252,25 +252,8 @@ export default function TransformerTable({
                 {/* Actions */}
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <Stack direction="row" spacing={0.5} justifyContent="center">
-                    <Tooltip title="View Images" arrow>
-                      <IconButton
-                        size="small"
-                        onClick={() => onOpenImages?.(t)}
-                        sx={{
-                          color: '#2196f3',
-                          bgcolor: alpha('#2196f3', 0.1),
-                          '&:hover': {
-                            bgcolor: alpha('#2196f3', 0.2),
-                            transform: 'scale(1.1)'
-                          },
-                          transition: 'all 0.2s ease'
-                        }}
-                      >
-                        <ImageIcon fontSize="small" />
-                      </IconButton>
-                    </Tooltip>
 
-                    <Tooltip title="View Details" arrow>
+                    <Tooltip title="View Inspections" arrow>
                       <IconButton
                         size="small"
                         onClick={() => onRowClick?.(t)}

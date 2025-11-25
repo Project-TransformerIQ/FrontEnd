@@ -318,12 +318,7 @@ export default function TransformersPage() {
     }
   };
 
-  // Maintenance records list navigation
-  const openMaintenanceRecords = (t) => {
-    navigate(`/transformers/${t.id}/maintenance-records`, {
-      state: { transformer: t },
-    });
-  };
+
 
   const stats = {
     total: transformers.length,
@@ -526,7 +521,7 @@ export default function TransformersPage() {
               onRowClick={(t) =>
                 navigate(`/transformers/${t.id}/inspections`, { state: { transformer: t } })
               }
-              onOpenImages={openMaintenanceRecords}
+              onOpenImages={openImages}
               onEdit={openEdit}
               onDelete={handleDeleteClick}
             />
