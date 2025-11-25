@@ -318,6 +318,13 @@ export default function TransformersPage() {
     }
   };
 
+  // Maintenance records list navigation
+  const openMaintenanceRecords = (t) => {
+    navigate(`/transformers/${t.id}/maintenance-records`, {
+      state: { transformer: t },
+    });
+  };
+
   const stats = {
     total: transformers.length,
     bulk: transformers.filter((t) => t.transformerType === "BULK").length,
@@ -519,7 +526,7 @@ export default function TransformersPage() {
               onRowClick={(t) =>
                 navigate(`/transformers/${t.id}/inspections`, { state: { transformer: t } })
               }
-              onOpenImages={openImages}
+              onOpenImages={openMaintenanceRecords}
               onEdit={openEdit}
               onDelete={handleDeleteClick}
             />

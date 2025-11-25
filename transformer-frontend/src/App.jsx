@@ -7,6 +7,7 @@ import TransformerInspectionsPage from "./pages/TransformerInspectionsPage";
 import ComparePage from "./pages/ComparePage";
 import LoginPage from "./pages/LoginPage";
 import MaintenanceRecordPage from "./pages/MaintenanceRecordPage"; // ⬅️ NEW
+import MaintenanceRecordsListPage from "./pages/MaintenanceRecordsListPage";
 import "./App.css";
 
 function AppContent() {
@@ -27,6 +28,10 @@ function AppContent() {
         <Route
           path="/transformers/:id/inspections/:inspectionId/maintenance-records"
           element={<MaintenanceRecordPage />}
+        />
+        <Route
+          path="/transformers/:id/maintenance-records"
+          element={<MaintenanceRecordsListPage />}
         />
       </Routes>
     </Router>
