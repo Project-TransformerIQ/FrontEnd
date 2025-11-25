@@ -7,7 +7,6 @@ import {
   createTransformer,
   updateTransformer,
   deleteTransformer,
-  getImages,
 } from "../services/transformerService";
 
 import {
@@ -41,7 +40,6 @@ import {
 import TransformerFormDialog from "../components/TransformerFormDialog";
 import TransformerTable from "../components/TransformerTable";
 import EmptyState from "../components/EmptyState";
-import ImagePreviewDialog from "./ImagePreviewDialog";
 import useSnackbar from "../hooks/useSnackbar";
 import DeleteConfirmDialog from "../components/common/DeleteConfirmDialog";
 import { useUser } from "../contexts/UserContext";
@@ -147,12 +145,7 @@ export default function TransformersPage() {
     transformer: null,
   });
 
-  // Images viewer
-  const [imagesOpen, setImagesOpen] = useState(false);
-  const [imagesLoading, setImagesLoading] = useState(false);
-  const [images, setImages] = useState([]);
-  const [viewT, setViewT] = useState(null);
-  const [previewIndex, setPreviewIndex] = useState(0);
+
 
   const navigate = useNavigate();
   const { snackbar, show, close } = useSnackbar();
@@ -272,49 +265,6 @@ export default function TransformersPage() {
       load(false);
     } catch (e) {
       show(e?.response?.data?.error || "Failed to delete transformer", "error");
-    }
-  };
-
-  /**
-   * View Image button -> fetch baseline exactly like ComparePage:
-   * - GET all images for transformer
-   * - filter imageType === "BASELINE" (case-robust)
-   * - sort newest first by createdAt (or uploadDate fallback)
-   * - show latest baseline only
-   */
-  const openImages = async (t) => {
-    setImagesLoading(true);
-    setViewT(t);
-    try {
-      const res = await getImages(t.id);
-      const all = Array.isArray(res?.data) ? res.data : [];
-
-      const baselines = all.filter(
-        (x) => String(x?.imageType ?? x?.type ?? "").toUpperCase() === "BASELINE"
-      );
-
-      baselines.sort(
-        (a, b) =>
-          new Date(b.createdAt || b.uploadDate || 0) -
-          new Date(a.createdAt || a.uploadDate || 0)
-      );
-
-      const baseline = baselines[0] || null;
-
-      if (!baseline) {
-        setImages([]);
-        setImagesOpen(false);
-        show("No Baseline image found for this transformer", "warning");
-        return;
-      }
-
-      setImages([baseline]);
-      setPreviewIndex(0);
-      setImagesOpen(true);
-    } catch (e) {
-      show(e?.response?.data?.error || "Failed to load images", "error");
-    } finally {
-      setImagesLoading(false);
     }
   };
 
@@ -521,7 +471,6 @@ export default function TransformersPage() {
               onRowClick={(t) =>
                 navigate(`/transformers/${t.id}/inspections`, { state: { transformer: t } })
               }
-              onOpenImages={openImages}
               onEdit={openEdit}
               onDelete={handleDeleteClick}
             />
@@ -553,20 +502,6 @@ export default function TransformersPage() {
         onCancel={() => setDeleteDialog({ open: false, transformer: null })}
         onConfirm={confirmDelete}
       />
-
-      {imagesOpen && (
-        <ImagePreviewDialog
-          open={imagesOpen}
-          onClose={() => setImagesOpen(false)}
-          images={images}
-          index={previewIndex}
-          setIndex={setPreviewIndex}
-          apiBase="/api/transformers"
-          transformer={viewT}
-          loading={imagesLoading}
-        />
-      )}
-
       <Snackbar
         open={snackbar.open}
         autoHideDuration={3500}
