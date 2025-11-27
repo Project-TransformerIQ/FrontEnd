@@ -1,112 +1,102 @@
 // src/pages/LoginPage.jsx
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Container,
-  FormControl,
-  InputLabel,
-  MenuItem,
-  Paper,
-  Select,
+  Stack,
+  TextField,
   Typography,
+  Alert,
 } from "@mui/material";
-import { Login as LoginIcon } from "@mui/icons-material";
+import { ElectricalServices } from "@mui/icons-material";
+import { useUser } from "../contexts/UserContext"; // ⬅️ important
 
-const users = [
-  "John Smith",
-  "Sarah Johnson",
-  "Michael Chen",
-  "Emily Davis",
-  "David Wilson",
-];
+export default function LoginPage() {
+  const { login } = useUser();
+  const navigate = useNavigate();
 
-function LoginPage({ onLogin }) {
-  const [selectedUser, setSelectedUser] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
-  const handleLogin = () => {
-    if (selectedUser) {
-      onLogin(selectedUser);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    try {
+      // 🔐 backend checks password
+      const user = await login(name.trim(), password);
+
+      // 🎯 redirect based on admin flag from backend
+      if (user.admin) {
+        navigate("/admin/users", { replace: true });
+      } else {
+        navigate("/", { replace: true });
+      }
+    } catch (e) {
+      const msg = e?.response?.data?.error || "Invalid credentials";
+      setError(msg);
     }
   };
 
   return (
-    <Box
-      sx={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      }}
+    <Container
+      maxWidth="sm"
+      sx={{ minHeight: "100vh", display: "flex", alignItems: "center" }}
     >
-      <Container maxWidth="sm">
-        <Paper
-          elevation={24}
-          sx={{
-            p: 4,
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
-            borderRadius: 2,
-          }}
-        >
-          <LoginIcon
-            sx={{
-              fontSize: 60,
-              color: "primary.main",
-              mb: 2,
-            }}
-          />
-          <Typography
-            component="h1"
-            variant="h4"
-            gutterBottom
-            sx={{ fontWeight: "bold" }}
-          >
-            Welcome
-          </Typography>
-          <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-            Please select your name to continue
-          </Typography>
+      <Card sx={{ width: "100%", borderRadius: 3, boxShadow: "0 12px 30px rgba(0,0,0,0.15)" }}>
+        <CardContent sx={{ p: 4 }}>
+          <Stack spacing={3}>
+            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center">
+              <ElectricalServices sx={{ fontSize: 40, color: "primary.main" }} />
+              <Typography variant="h5" fontWeight={700}>
+                Transformer Maintenance Portal
+              </Typography>
+            </Stack>
 
-          <FormControl fullWidth sx={{ mb: 3 }}>
-            <InputLabel id="user-select-label">Select User</InputLabel>
-            <Select
-              labelId="user-select-label"
-              id="user-select"
-              value={selectedUser}
-              label="Select User"
-              onChange={(e) => setSelectedUser(e.target.value)}
-            >
-              {users.map((user) => (
-                <MenuItem key={user} value={user}>
-                  {user}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+            {error && <Alert severity="error">{error}</Alert>}
 
-          <Button
-            fullWidth
-            variant="contained"
-            size="large"
-            startIcon={<LoginIcon />}
-            onClick={handleLogin}
-            disabled={!selectedUser}
-            sx={{
-              py: 1.5,
-              fontSize: "1.1rem",
-              fontWeight: "bold",
-              textTransform: "none",
-            }}
-          >
-            Login
-          </Button>
-        </Paper>
-      </Container>
-    </Box>
+            <Box component="form" onSubmit={handleSubmit}>
+              <Stack spacing={2.5}>
+                <TextField
+                  label="Name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  fullWidth
+                  required
+                />
+                <TextField
+                  label="Password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  fullWidth
+                  required
+                  inputProps={{ autoComplete: "current-password" }}
+                />
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  size="large"
+                  fullWidth
+                  sx={{ mt: 1 }}
+                >
+                  Log In
+                </Button>
+              </Stack>
+            </Box>
+
+            <Typography variant="body2" color="text.secondary" textAlign="center">
+              Default admin: <b>admin / admin123</b>
+            </Typography>
+          </Stack>
+        </CardContent>
+      </Card>
+    </Container>
   );
 }
-
-export default LoginPage;

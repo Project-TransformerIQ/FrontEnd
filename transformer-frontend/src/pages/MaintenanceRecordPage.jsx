@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-
+import { useUser } from "../contexts/UserContext";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   Box,
@@ -54,6 +54,10 @@ import ZoomableImageWithBoxes from "../components/common/ZoomableImageWithBoxes"
 
 export default function MaintenanceRecordPage() {
   const { id, inspectionId } = useParams();
+  const { currentUser } = useUser();
+  const canEdit =
+    currentUser?.occupation === "MAINTENANCE_ENGINEER" ||
+    currentUser?.occupation === "ADMIN";
   const navigate = useNavigate();
   const locationState = useLocation().state;
   const pdfRef = useRef(null);
@@ -1098,7 +1102,7 @@ export default function MaintenanceRecordPage() {
               size="large"
               startIcon={existingRecord ? <CheckCircle /> : <Engineering />}
               onClick={handleSave}
-              disabled={saving || loadingForm}
+              disabled={!canEdit || saving || loadingForm}
               sx={{
                 bgcolor: "#1565c0",
                 px: 5,

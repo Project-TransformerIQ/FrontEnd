@@ -1,27 +1,31 @@
 // src/contexts/UserContext.jsx
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
+import api from "../services/api"; // keep as in your project
 
-const UserContext = createContext();
+const UserContext = createContext(null);
 
 export function UserProvider({ children }) {
+  // 👇 ALWAYS start logged-out
   const [currentUser, setCurrentUser] = useState(null);
 
-  // Check if user is already logged in (from localStorage)
-  useEffect(() => {
-    const storedUser = localStorage.getItem("currentUser");
-    if (storedUser) {
-      setCurrentUser(storedUser);
-    }
-  }, []);
+  // 👇 Call backend, check password there, and return user
+  const login = async (name, password) => {
+    const res = await api.post("/auth/login", { name, password });
+    // expected: { token, id, name, occupation, admin }
+    const user = res.data;
 
-  const login = (userName) => {
-    setCurrentUser(userName);
-    localStorage.setItem("currentUser", userName);
+    setCurrentUser(user);
+
+    if (user.token) {
+      api.defaults.headers.common["X-Auth-Token"] = user.token;
+    }
+
+    return user;
   };
 
   const logout = () => {
     setCurrentUser(null);
-    localStorage.removeItem("currentUser");
+    delete api.defaults.headers.common["X-Auth-Token"];
   };
 
   return (
@@ -32,9 +36,5 @@ export function UserProvider({ children }) {
 }
 
 export function useUser() {
-  const context = useContext(UserContext);
-  if (!context) {
-    throw new Error("useUser must be used within a UserProvider");
-  }
-  return context;
+  return useContext(UserContext);
 }

@@ -312,8 +312,10 @@ export default function TransformersPage() {
                     Monitor and manage electrical transformers with thermal inspection data
                   </Typography>
                   <Typography variant="body2" sx={{ opacity: 0.85, fontWeight: 500 }}>
-                    Logged in as: {currentUser}
+                    Logged in as: {currentUser?.name}{" "}
+                    {currentUser?.occupation && `(${currentUser.occupation})`}
                   </Typography>
+
                 </Stack>
 
                 <Stack direction="row" spacing={2}>
