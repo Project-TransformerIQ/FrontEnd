@@ -532,69 +532,127 @@ export default function ComparePage() {
   console.log("🔢 Numbered boxes:", numberedBoxes);
 
   // Error management handlers
-  const handleAddError = async (newError) => {
-    if (!maint[idx]?.id) return;
-    
-    const imageId = maint[idx].id;
-    const currentBoxes = boxesById[imageId] || [];
-    
-    setSavingError(true);
-    try {
-      // Save to backend - ensure imageId is in the request body
-      const errorWithImageId = { ...newError, imageId };
-      const response = await saveError(imageId, errorWithImageId);
-      const savedError = response?.data?.data || response?.data;
-      
-      // Update local state with server response (includes ID)
-      const updatedBoxes = [...currentBoxes, { 
-        ...newError, 
+ const handleAddError = async (newError) => {
+  if (!maint[idx]?.id) return;
+
+  const imageId = maint[idx].id;
+  const currentBoxes = boxesById[imageId] || [];
+
+  setSavingError(true);
+  try {
+    // Make sure createdBy is a STRING, not a user object.
+    // Prefer the logged-in user's name; otherwise fall back to AI model label or any provided string.
+    const createdByName =
+      currentUser?.name ||
+      currentUser?.username ||
+      (typeof newError.createdBy === "string" ? newError.createdBy : newError.createdBy?.name) ||
+      "AI model";
+    const errorWithImageId = {
+      ...newError,
+      imageId,
+      createdBy: createdByName,
+      createdAt: newError.createdAt || new Date().toISOString(),
+    };
+
+    const response = await saveError(imageId, errorWithImageId);
+    const savedError = response?.data?.data || response?.data;
+
+    // Update local state with server response (includes ID)
+    const updatedBoxes = [
+      ...currentBoxes,
+      {
+        ...newError,
         ...savedError,
-        idx: currentBoxes.length + 1 
-      }];
-      
-      setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
-      setHasUnsavedEdits(true); // Mark as having unsaved edits
-      show("Error added and saved successfully", "success");
-    } catch (error) {
-      console.error("Failed to save error:", error);
-      show(error?.response?.data?.error || error?.message || "Failed to save error to server", "error");
-    } finally {
-      setSavingError(false);
-    }
-  };
+        idx: currentBoxes.length + 1,
+      },
+    ];
+
+    setBoxesById((prev) => ({ ...prev, [imageId]: updatedBoxes }));
+    setHasUnsavedEdits(true);
+    show("Error added and saved successfully", "success");
+  } catch (error) {
+    console.error("Failed to save error:", error);
+    show(
+      error?.response?.data?.error ||
+        error?.message ||
+        "Failed to save error to server",
+      "error"
+    );
+  } finally {
+    setSavingError(false);
+  }
+};
+
 
   const handleEditBox = (index) => {
     setSelectedErrorIndex(index);
     setBoxEditDialogOpen(true);
   };
 
-  const handleSaveEditedError = async (updatedError) => {
-    if (!maint[idx]?.id) return;
-    
-    const imageId = maint[idx].id;
-    const currentBoxes = boxesById[imageId] || [];
-    
-    setSavingError(true);
-    try {
-      // Save to backend
-      if (updatedError.id || updatedError.regionId) {
-        await updateError(imageId, updatedError.id || updatedError.regionId, updatedError);
-      }
-      
-      // Update local state
-      const updatedBoxes = [...currentBoxes];
-      updatedBoxes[selectedErrorIndex] = updatedError;
-      
-      setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
-      setHasUnsavedEdits(true); // Mark as having unsaved edits
-      show("Error updated and saved successfully", "success");
-    } catch (error) {
-      console.error("Failed to update error:", error);
-      show(error?.response?.data?.error || error?.message || "Failed to update error on server", "error");
-    } finally {
-      setSavingError(false);
+const handleSaveEditedError = async (updatedError) => {
+  if (!maint[idx]?.id) return;
+
+  const imageId = maint[idx].id;
+  const currentBoxes = boxesById[imageId] || [];
+
+  setSavingError(true);
+  try {
+    // Normalize createdBy and lastModifiedBy into STRINGS
+    const createdByName =
+      typeof updatedError.createdBy === "string"
+        ? updatedError.createdBy
+        : updatedError.createdBy?.name ||
+          currentUser?.name ||
+          currentUser?.username ||
+          "unknown";
+
+    const lastModifiedByName =
+      typeof updatedError.lastModifiedBy === "string"
+        ? updatedError.lastModifiedBy
+        : updatedError.lastModifiedBy?.name ||
+          createdByName ||
+          currentUser?.name ||
+          currentUser?.username ||
+          "unknown";
+
+    const nowIso = new Date().toISOString();
+
+    // Build payload that matches UpdateErrorAnnotationDTO
+    const payload = {
+      ...updatedError,
+      imageId,                                      // ensure matches path
+      id: updatedError.id || updatedError.regionId, // ensure ID is present
+      createdBy: createdByName,                     // String
+      lastModifiedBy: lastModifiedByName,           // String (if DTO has it)
+      lastModifiedAt: updatedError.lastModifiedAt || nowIso,
+    };
+
+    if (payload.id) {
+      await updateError(imageId, payload.id, payload);
     }
-  };
+
+    // Update local state
+    const updatedBoxes = [...currentBoxes];
+    updatedBoxes[selectedErrorIndex] = {
+      ...updatedBoxes[selectedErrorIndex],
+      ...payload,
+    };
+
+    setBoxesById((prev) => ({ ...prev, [imageId]: updatedBoxes }));
+    setHasUnsavedEdits(true);
+    show("Error updated and saved successfully", "success");
+  } catch (error) {
+    console.error("Failed to update error:", error);
+    show(
+      error?.response?.data?.error ||
+        error?.message ||
+        "Failed to update error on server",
+      "error"
+    );
+  } finally {
+    setSavingError(false);
+  }
+};
 
   const handleDeleteError = async (index) => {
     if (!maint[idx]?.id) return;

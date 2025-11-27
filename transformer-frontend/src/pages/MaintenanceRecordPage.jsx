@@ -82,6 +82,8 @@ export default function MaintenanceRecordPage() {
     { key: "current", value: "" },
   ]);
 
+  const [pdfMode, setPdfMode] = useState(false);
+
   const transformerFromState = locationState?.transformer || null;
   const inspectionFromState = locationState?.inspection || null;
 
@@ -251,11 +253,19 @@ export default function MaintenanceRecordPage() {
   const transformer = formPayload?.transformer || transformerFromState;
   const inspection = formPayload?.inspection || inspectionFromState;
   const maintenanceImage = formPayload?.maintenanceImage;
+  console.log("formPayload", formPayload);
+  // Filter out deleted anomalies and map to boxes
+  const filteredAnomalies = useMemo(() => {
+    if (!formPayload?.anomalies) return [];
+    return formPayload.anomalies.filter(
+      (a) => !a.isDeleted && !a.deleted && !a.markedDeleted
+    );
+  }, [formPayload?.anomalies]);
 
   const maintenanceBoxes = useMemo(() => {
-    if (!formPayload?.anomalies) return [];
+    if (!filteredAnomalies.length) return [];
 
-    return formPayload.anomalies
+    return filteredAnomalies
       .map((a, i) => {
         if (!a.boundingBox) return null;
         const { x, y, width, height } = a.boundingBox;
@@ -277,7 +287,7 @@ export default function MaintenanceRecordPage() {
         };
       })
       .filter(Boolean);
-  }, [formPayload?.anomalies]);
+  }, [filteredAnomalies]);
 
   const filteredHistory = useMemo(() => {
     if (!inspectionId) return history;
@@ -310,11 +320,45 @@ export default function MaintenanceRecordPage() {
     }
   };
 
-  // 🔹 Generate PDF from the visible report content and OPEN it in a new tab
+  // Simple AI anomaly summary stats
+  const anomalySummary = useMemo(() => {
+    const total = filteredAnomalies.length;
+    const faulty = filteredAnomalies.filter((a) =>
+      String(a.tag || a.type || "").toUpperCase().includes("FAULT")
+    ).length;
+    const potential = total - faulty;
+    return { total, faulty, potential };
+  }, [filteredAnomalies]);
+
+ const formatAnnotator = (a) => {
+  // Prefer the explicit createdBy / created_by field from formPayload.anomalies
+  const createdBy =
+    a.createdBy ??
+    a.created_by ??
+    null;
+
+  if (createdBy) return createdBy;
+  return "AI_Model";
+};
+  const formatAnnotatedAt = (a) => {
+    const ts = a.lastModifiedAt || a.createdAt || a.timestamp;
+    if (!ts) return "-";
+    try {
+      return new Date(ts).toLocaleString();
+    } catch {
+      return ts;
+    }
+  };
+
+  // Generate PDF in "pdfMode" (hide buttons / interactive UI and use simpler chips)
   const handleDownloadPdf = async () => {
     if (!pdfRef.current) return;
 
     try {
+      setPdfMode(true);
+      // wait one tick for React to re-render
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
       const element = pdfRef.current;
 
       const canvas = await html2canvas(element, {
@@ -322,6 +366,7 @@ export default function MaintenanceRecordPage() {
         useCORS: true,
         scrollX: 0,
         scrollY: -window.scrollY,
+        backgroundColor: "#ffffff",
       });
 
       const imgData = canvas.toDataURL("image/png");
@@ -349,12 +394,12 @@ export default function MaintenanceRecordPage() {
 
       const pdfBlob = pdf.output("blob");
       const url = URL.createObjectURL(pdfBlob);
-
-      // 👉 Open PDF preview in a new tab instead of downloading
       window.open(url);
     } catch (e) {
       console.error("Failed to generate PDF", e);
       show("Failed to generate PDF", "error");
+    } finally {
+      setPdfMode(false);
     }
   };
 
@@ -381,9 +426,7 @@ export default function MaintenanceRecordPage() {
               alignItems="flex-start"
               sx={{ mb: 3 }}
             >
-              <Description
-                sx={{ fontSize: 48, color: "#1565c0", mt: 0.5 }}
-              />
+              <Description sx={{ fontSize: 48, color: "#1565c0", mt: 0.5 }} />
               <Box sx={{ flex: 1 }}>
                 <Typography
                   variant="h4"
@@ -406,13 +449,14 @@ export default function MaintenanceRecordPage() {
                 <Breadcrumbs separator="/" sx={{ fontSize: "0.875rem" }}>
                   <Link
                     component="button"
-                    onClick={() => navigate("/")}
-                    underline="hover"
+                    onClick={() => !pdfMode && navigate("/")}
+                    underline={pdfMode ? "none" : "hover"}
                     sx={{
                       display: "flex",
                       alignItems: "center",
                       gap: 0.5,
                       color: "#1565c0",
+                      pointerEvents: pdfMode ? "none" : "auto",
                     }}
                   >
                     <ElectricalServices fontSize="small" />
@@ -421,16 +465,18 @@ export default function MaintenanceRecordPage() {
                   <Link
                     component="button"
                     onClick={() =>
+                      !pdfMode &&
                       navigate(`/transformers/${id}/inspections`, {
                         state: { transformer },
                       })
                     }
-                    underline="hover"
+                    underline={pdfMode ? "none" : "hover"}
                     sx={{
                       display: "flex",
                       alignItems: "center",
                       gap: 0.5,
                       color: "#1565c0",
+                      pointerEvents: pdfMode ? "none" : "auto",
                     }}
                   >
                     <Assessment fontSize="small" />
@@ -449,46 +495,48 @@ export default function MaintenanceRecordPage() {
                 </Breadcrumbs>
               </Box>
 
-              {/* Back + View PDF buttons */}
-              <Stack spacing={1}>
-                <Button
-                  variant="outlined"
-                  startIcon={<ArrowBack />}
-                  onClick={() =>
-                    navigate(`/transformers/${id}/inspections`, {
-                      state: { transformer },
-                    })
-                  }
-                  sx={{
-                    borderColor: "#1565c0",
-                    color: "#1565c0",
-                    borderWidth: 2,
-                    fontWeight: 600,
-                    "&:hover": {
-                      borderColor: "#0d47a1",
+              {/* Back + View PDF buttons (hidden in pdfMode) */}
+              {!pdfMode && (
+                <Stack spacing={1}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<ArrowBack />}
+                    onClick={() =>
+                      navigate(`/transformers/${id}/inspections`, {
+                        state: { transformer },
+                      })
+                    }
+                    sx={{
+                      borderColor: "#1565c0",
+                      color: "#1565c0",
                       borderWidth: 2,
-                      bgcolor: "#e3f2fd",
-                    },
-                  }}
-                >
-                  Back
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<Description />}
-                  onClick={handleDownloadPdf}
-                  sx={{
-                    mt: 1,
-                    bgcolor: "#1565c0",
-                    fontWeight: 700,
-                    "&:hover": {
-                      bgcolor: "#0d47a1",
-                    },
-                  }}
-                >
-                  View PDF
-                </Button>
-              </Stack>
+                      fontWeight: 600,
+                      "&:hover": {
+                        borderColor: "#0d47a1",
+                        borderWidth: 2,
+                        bgcolor: "#e3f2fd",
+                      },
+                    }}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    variant="contained"
+                    startIcon={<Description />}
+                    onClick={handleDownloadPdf}
+                    sx={{
+                      mt: 1,
+                      bgcolor: "#1565c0",
+                      fontWeight: 700,
+                      "&:hover": {
+                        bgcolor: "#0d47a1",
+                      },
+                    }}
+                  >
+                    View PDF
+                  </Button>
+                </Stack>
+              )}
             </Stack>
           </Paper>
 
@@ -617,6 +665,12 @@ export default function MaintenanceRecordPage() {
                     <Typography variant="body2" color="text.secondary">
                       <strong>Inspector:</strong> {inspection.inspector}
                     </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      <strong>Inspection Date:</strong>{" "}
+                      {inspection.createdAt
+                        ? new Date(inspection.createdAt).toLocaleString()
+                        : "-"}
+                    </Typography>
                     {inspection.notes && (
                       <Typography
                         variant="body2"
@@ -632,7 +686,7 @@ export default function MaintenanceRecordPage() {
             </Box>
           </Paper>
 
-          {/* Section 2: Thermal Analysis */}
+          {/* Section 2: Thermal Imaging Analysis */}
           <Paper elevation={0} sx={{ mb: 3, border: "1px solid #e0e0e0" }}>
             <Box sx={{ bgcolor: "#1565c0", px: 3, py: 2 }}>
               <Typography
@@ -645,69 +699,157 @@ export default function MaintenanceRecordPage() {
             </Box>
             <Box sx={{ p: 3 }}>
               {maintenanceImage ? (
-                <Grid container spacing={4}>
-                  <Grid item xs={12} md={6}>
+                <Box>
+                  {/* Full-width image */}
+                  <Box
+                    sx={{
+                      border: "2px solid #e0e0e0",
+                      borderRadius: 1,
+                      overflow: "hidden",
+                      bgcolor: "#000",
+                    }}
+                  >
                     <Box
                       sx={{
-                        border: "2px solid #e0e0e0",
-                        borderRadius: 1,
-                        overflow: "hidden",
-                        bgcolor: "#000",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        minHeight: 380,
                       }}
                     >
+                      <ZoomableImageWithBoxes
+                        src={buildImageRawUrl(maintenanceImage.id)}
+                        alt={maintenanceImage.filename}
+                        boxes={maintenanceBoxes}
+                        showControls={!pdfMode}
+                      />
+                    </Box>
+                  </Box>
+
+                  {/* AI Anomaly Summary (full width under image) */}
+                  <Box
+                    sx={{
+                      mt: 2.5,
+                      p: 2,
+                      bgcolor: "#f8f9fa",
+                      borderRadius: 1,
+                      border: "1px solid #e0e0e0",
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle2"
+                      fontWeight={700}
+                      gutterBottom
+                      sx={{
+                        textTransform: "uppercase",
+                        color: "#1565c0",
+                        letterSpacing: "0.5px",
+                        mb: 1,
+                      }}
+                    >
+                      AI Anomaly Summary
+                    </Typography>
+                    <Grid container spacing={2}>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2">
+                          <strong>Total Anomalies:</strong>{" "}
+                          {anomalySummary.total}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Faulty:</strong> {anomalySummary.faulty}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Potential:</strong>{" "}
+                          {anomalySummary.potential}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2">
+                          <strong>Image Type:</strong>{" "}
+                          {maintenanceImage.imageType || "-"}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Uploaded By:</strong>{" "}
+                          {maintenanceImage.uploader || "-"}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Captured:</strong>{" "}
+                          {maintenanceImage.createdAt
+                            ? new Date(
+                                maintenanceImage.createdAt
+                              ).toLocaleString()
+                            : "-"}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={12} md={4}>
+                        <Typography variant="body2" gutterBottom>
+                          <strong>File:</strong>{" "}
+                          {maintenanceImage.filename || "-"}
+                        </Typography>
+                        <Typography variant="body2" gutterBottom>
+                          <strong>Content Type:</strong>{" "}
+                          {maintenanceImage.contentType || "-"}
+                        </Typography>
+                        <Typography variant="body2">
+                          <strong>Size:</strong>{" "}
+                          {maintenanceImage.sizeBytes != null
+                            ? `${maintenanceImage.sizeBytes} bytes`
+                            : "-"}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+
+                    {/* Environmental metadata if present */}
+                    {maintenanceImage.envCondition && (
                       <Box
                         sx={{
-                          display: "flex",
-                          justifyContent: "center",
-                          alignItems: "center",
-                          minHeight: 300,
+                          mt: 2,
+                          pt: 2,
+                          borderTop: "1px dashed #ccc",
                         }}
                       >
-                        <ZoomableImageWithBoxes
-                          src={buildImageRawUrl(maintenanceImage.id)}
-                          alt={maintenanceImage.filename}
-                          boxes={maintenanceBoxes}
-                          showControls={false}
-                        />
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            textTransform: "uppercase",
+                            fontWeight: 700,
+                            color: "#555",
+                            mb: 1,
+                          }}
+                        >
+                          Environmental Conditions
+                        </Typography>
+                        {typeof maintenanceImage.envCondition === "object" ? (
+                          <Grid container spacing={1.5}>
+                            {Object.entries(maintenanceImage.envCondition).map(
+                              ([k, v]) => (
+                                <Grid item xs={12} md={4} key={k}>
+                                  <Typography variant="body2">
+                                    <strong>{k}:</strong> {String(v)}
+                                  </Typography>
+                                </Grid>
+                              )
+                            )}
+                          </Grid>
+                        ) : (
+                          <Typography variant="body2">
+                            {String(maintenanceImage.envCondition)}
+                          </Typography>
+                        )}
                       </Box>
-                    </Box>
-                    <Box
-                      sx={{
-                        mt: 2,
-                        p: 2,
-                        bgcolor: "#f8f9fa",
-                        borderRadius: 1,
-                        border: "1px solid #e0e0e0",
-                      }}
-                    >
-                      <Typography
-                        variant="caption"
-                        sx={{
-                          textTransform: "uppercase",
-                          fontWeight: 700,
-                          color: "#555",
-                          display: "block",
-                          mb: 0.5,
-                        }}
-                      >
-                        Image Reference
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        fontWeight={500}
-                        gutterBottom
-                      >
-                        {maintenanceImage.filename}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        <strong>Captured:</strong>{" "}
-                        {new Date(
-                          maintenanceImage.createdAt
-                        ).toLocaleString()}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={12} md={6}>
+                    )}
+                  </Box>
+
+                  {/* Detected Anomalies (full width, under summary) */}
+                  <Box
+                    sx={{
+                      mt: 2.5,
+                      p: 2,
+                      bgcolor: "#f8f9fa",
+                      borderRadius: 1,
+                      border: "1px solid #e0e0e0",
+                    }}
+                  >
                     <Typography
                       variant="subtitle1"
                       fontWeight={700}
@@ -721,8 +863,7 @@ export default function MaintenanceRecordPage() {
                     >
                       Detected Anomalies
                     </Typography>
-                    {formPayload?.anomalies &&
-                    formPayload.anomalies.length > 0 ? (
+                    {filteredAnomalies.length > 0 ? (
                       <TableContainer
                         sx={{
                           border: "1px solid #e0e0e0",
@@ -732,6 +873,11 @@ export default function MaintenanceRecordPage() {
                         <Table size="small">
                           <TableHead>
                             <TableRow sx={{ bgcolor: "#1565c0" }}>
+                              <TableCell
+                                sx={{ fontWeight: 700, color: "white" }}
+                              >
+                                Region ID
+                              </TableCell>
                               <TableCell
                                 sx={{ fontWeight: 700, color: "white" }}
                               >
@@ -745,56 +891,80 @@ export default function MaintenanceRecordPage() {
                               <TableCell
                                 sx={{ fontWeight: 700, color: "white" }}
                               >
-                                Region ID
+                                Annotator
                               </TableCell>
+                              
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {formPayload.anomalies.map((a) => (
-                              <TableRow
-                                key={a.dbId}
-                                sx={{
-                                  "&:nth-of-type(odd)": {
-                                    bgcolor: "#f8f9fa",
-                                  },
-                                }}
-                              >
-                                <TableCell sx={{ fontWeight: 500 }}>
-                                  {a.type || "Anomaly"}
-                                </TableCell>
-                                <TableCell>
-                                  {a.tag && (
-                                    <Chip
-                                      size="small"
-                                      label={a.tag}
-                                      sx={{
-                                        height: 24,
-                                        fontWeight: 600,
-                                        bgcolor: a.tag
-                                          .toUpperCase()
-                                          .includes("FAULT")
-                                          ? "#ffebee"
-                                          : "#fff3e0",
-                                        color: a.tag
-                                          .toUpperCase()
-                                          .includes("FAULT")
-                                          ? "#c62828"
-                                          : "#e65100",
-                                        border: "1px solid",
-                                        borderColor: a.tag
-                                          .toUpperCase()
-                                          .includes("FAULT")
-                                          ? "#ef9a9a"
-                                          : "#ffcc80",
-                                      }}
-                                    />
-                                  )}
-                                </TableCell>
-                                <TableCell sx={{ fontFamily: "monospace" }}>
-                                  {a.regionId ?? "N/A"}
-                                </TableCell>
-                              </TableRow>
-                            ))}
+                            {filteredAnomalies.map((a, i) => {
+                              const isFault = String(
+                                a.tag || a.type || ""
+                              )
+                                .toUpperCase()
+                                .includes("FAULT");
+
+                              const classificationContent = pdfMode ? (
+                                <Box
+                                  sx={{
+                                    display: "inline-block",
+                                    px: 1.5,
+                                    py: 0.5,
+                                    borderRadius: 999,
+                                    border: "1px solid",
+                                    borderColor: isFault
+                                      ? "#ef9a9a"
+                                      : "#ffcc80",
+                                    bgcolor: isFault
+                                      ? "#ffebee"
+                                      : "#fff3e0",
+                                    color: isFault
+                                      ? "#c62828"
+                                      : "#e65100",
+                                    fontSize: "0.75rem",
+                                    fontWeight: 700,
+                                  }}
+                                >
+                                  {a.tag || a.type || "Anomaly"}
+                                </Box>
+                              ) : (
+                                <Chip
+                                  size="small"
+                                  label={a.tag || a.type || "Anomaly"}
+                                  sx={{
+                                    height: 24,
+                                    fontWeight: 600,
+                                    bgcolor: isFault ? "#ffebee" : "#fff3e0",
+                                    color: isFault ? "#c62828" : "#e65100",
+                                    border: "1px solid",
+                                    borderColor: isFault
+                                      ? "#ef9a9a"
+                                      : "#ffcc80",
+                                  }}
+                                />
+                              );
+
+                              return (
+                                <TableRow
+                                  key={a.dbId ?? a.regionId ?? a.id}
+                                  sx={{
+                                    "&:nth-of-type(odd)": {
+                                      bgcolor: "#f8f9fa",
+                                    },
+                                  }}
+                                >
+                                  <TableCell sx={{ fontFamily: "monospace" }}>
+                                      {i + 1}
+                                    </TableCell>
+                                  <TableCell sx={{ fontWeight: 500 }}>
+                                    {a.type || "Anomaly"}
+                                  </TableCell>
+                                  <TableCell>{classificationContent}</TableCell>
+                                  <TableCell>{formatAnnotator(a)}</TableCell>
+                                  
+                                </TableRow>
+                              );
+                            })}
                           </TableBody>
                         </Table>
                       </TableContainer>
@@ -802,22 +972,19 @@ export default function MaintenanceRecordPage() {
                       <Box
                         sx={{
                           p: 3,
-                          bgcolor: "#f8f9fa",
+                          bgcolor: "#ffffff",
                           borderRadius: 1,
                           border: "1px solid #e0e0e0",
                           textAlign: "center",
                         }}
                       >
-                        <Typography
-                          color="text.secondary"
-                          variant="body2"
-                        >
+                        <Typography color="text.secondary" variant="body2">
                           No anomalies detected in thermal scan.
                         </Typography>
                       </Box>
                     )}
-                  </Grid>
-                </Grid>
+                  </Box>
+                </Box>
               ) : (
                 <Typography color="text.secondary">
                   No thermal image available.
@@ -834,7 +1001,7 @@ export default function MaintenanceRecordPage() {
                 fontWeight={700}
                 sx={{ color: "white", letterSpacing: "0.5px" }}
               >
-                3. INSPECTION DETAILS
+                3. MAINTENANCE DETAILS 
               </Typography>
             </Box>
             <Box sx={{ p: 3 }}>
@@ -850,19 +1017,22 @@ export default function MaintenanceRecordPage() {
                       mb: 1,
                     }}
                   >
-                    Inspector Name *
+                    Maintenance PERSONNEL *
                   </Typography>
                   <TextField
                     value={inspectorName}
                     onChange={(e) => setInspectorName(e.target.value)}
                     required
                     fullWidth
-                    placeholder="Enter inspector name"
+                    placeholder="Maintenance Personnel"
                     sx={{
                       "& .MuiOutlinedInput-root": {
                         bgcolor: "white",
                         fontWeight: 500,
                       },
+                    }}
+                    InputProps={{
+                      readOnly: pdfMode,
                     }}
                   />
                 </Grid>
@@ -877,7 +1047,7 @@ export default function MaintenanceRecordPage() {
                       mb: 1,
                     }}
                   >
-                    Inspection Timestamp
+                    MAINTENANCE DUE*
                   </Typography>
                   <TextField
                     type="datetime-local"
@@ -890,6 +1060,9 @@ export default function MaintenanceRecordPage() {
                         bgcolor: "white",
                         fontWeight: 500,
                       },
+                    }}
+                    InputProps={{
+                      readOnly: pdfMode,
                     }}
                   />
                 </Grid>
@@ -917,6 +1090,9 @@ export default function MaintenanceRecordPage() {
                         bgcolor: status ? getStatusColor(status) : "white",
                         fontWeight: 600,
                       },
+                    }}
+                    SelectProps={{
+                      readOnly: pdfMode,
                     }}
                   >
                     {allowedStatuses.map((s) => (
@@ -954,7 +1130,7 @@ export default function MaintenanceRecordPage() {
                       <TableCell sx={{ fontWeight: 700 }}>
                         Measured Value
                       </TableCell>
-                      <TableCell width={100}></TableCell>
+                      {!pdfMode && <TableCell width={100}></TableCell>}
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -974,13 +1150,20 @@ export default function MaintenanceRecordPage() {
                                 fontWeight: 500,
                               },
                             }}
+                            InputProps={{
+                              readOnly: pdfMode,
+                            }}
                           />
                         </TableCell>
                         <TableCell>
                           <TextField
                             value={r.value}
                             onChange={(e) =>
-                              handleReadingChange(idx, "value", e.target.value)
+                              handleReadingChange(
+                                idx,
+                                "value",
+                                e.target.value
+                              )
                             }
                             fullWidth
                             placeholder="e.g., 230V, 15A, 75°C"
@@ -990,31 +1173,38 @@ export default function MaintenanceRecordPage() {
                                 fontWeight: 500,
                               },
                             }}
+                            InputProps={{
+                              readOnly: pdfMode,
+                            }}
                           />
                         </TableCell>
-                        <TableCell align="center">
-                          <IconButton
-                            onClick={() => removeReadingRow(idx)}
-                            sx={{
-                              color: "#d32f2f",
-                              "&:hover": { bgcolor: "#ffebee" },
-                            }}
-                          >
-                            <Remove />
-                          </IconButton>
-                        </TableCell>
+                        {!pdfMode && (
+                          <TableCell align="center">
+                            <IconButton
+                              onClick={() => removeReadingRow(idx)}
+                              sx={{
+                                color: "#d32f2f",
+                                "&:hover": { bgcolor: "#ffebee" },
+                              }}
+                            >
+                              <Remove />
+                            </IconButton>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))}
                   </TableBody>
                 </Table>
               </TableContainer>
-              <Button
-                startIcon={<Add />}
-                onClick={addReadingRow}
-                sx={{ mt: 2, color: "#1565c0", fontWeight: 600 }}
-              >
-                Add Measurement Row
-              </Button>
+              {!pdfMode && (
+                <Button
+                  startIcon={<Add />}
+                  onClick={addReadingRow}
+                  sx={{ mt: 2, color: "#1565c0", fontWeight: 600 }}
+                >
+                  Add Measurement Row
+                </Button>
+              )}
             </Box>
           </Paper>
 
@@ -1056,6 +1246,9 @@ export default function MaintenanceRecordPage() {
                         bgcolor: "white",
                       },
                     }}
+                    InputProps={{
+                      readOnly: pdfMode,
+                    }}
                   />
                 </Box>
                 <Box>
@@ -1083,44 +1276,49 @@ export default function MaintenanceRecordPage() {
                         bgcolor: "white",
                       },
                     }}
+                    InputProps={{
+                      readOnly: pdfMode,
+                    }}
                   />
                 </Box>
               </Stack>
             </Box>
           </Paper>
 
-          {/* Save Button */}
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "flex-end",
-              mb: 3,
-            }}
-          >
-            <Button
-              variant="contained"
-              size="large"
-              startIcon={existingRecord ? <CheckCircle /> : <Engineering />}
-              onClick={handleSave}
-              disabled={!canEdit || saving || loadingForm}
+          {/* Save Button (hidden in PDF) */}
+          {!pdfMode && (
+            <Box
               sx={{
-                bgcolor: "#1565c0",
-                px: 5,
-                py: 1.5,
-                fontWeight: 700,
-                fontSize: "1rem",
-                letterSpacing: "0.5px",
-                "&:hover": {
-                  bgcolor: "#0d47a1",
-                },
-                "&:disabled": {
-                  bgcolor: "#90caf9",
-                },
+                display: "flex",
+                justifyContent: "flex-end",
+                mb: 3,
               }}
             >
-              {existingRecord ? "UPDATE REPORT" : "SUBMIT REPORT"}
-            </Button>
-          </Box>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={existingRecord ? <CheckCircle /> : <Engineering />}
+                onClick={handleSave}
+                disabled={!canEdit || saving || loadingForm}
+                sx={{
+                  bgcolor: "#1565c0",
+                  px: 5,
+                  py: 1.5,
+                  fontWeight: 700,
+                  fontSize: "1rem",
+                  letterSpacing: "0.5px",
+                  "&:hover": {
+                    bgcolor: "#0d47a1",
+                  },
+                  "&:disabled": {
+                    bgcolor: "#90caf9",
+                  },
+                }}
+              >
+                {existingRecord ? "UPDATE REPORT" : "SUBMIT REPORT"}
+              </Button>
+            </Box>
+          )}
 
           {/* Section 6: Maintenance History */}
           <Paper elevation={0} sx={{ border: "1px solid #e0e0e0" }}>
