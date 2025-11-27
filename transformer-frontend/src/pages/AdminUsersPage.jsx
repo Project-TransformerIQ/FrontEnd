@@ -1,5 +1,6 @@
 // src/pages/AdminUsersPage.jsx
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Alert,
   Box,
@@ -22,7 +23,9 @@ const OCCUPATIONS = [
 ];
 
 export default function AdminUsersPage() {
-  const { currentUser } = useUser();
+  const navigate = useNavigate();
+  const { currentUser, logout } = useUser();
+
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [occupation, setOccupation] = useState("INSPECTION_ENGINEER");
@@ -33,9 +36,7 @@ export default function AdminUsersPage() {
   if (!currentUser?.admin) {
     return (
       <Container maxWidth="sm" sx={{ mt: 4 }}>
-        <Alert severity="error">
-          Only admin can access this page.
-        </Alert>
+        <Alert severity="error">Only admin can access this page.</Alert>
       </Container>
     );
   }
@@ -72,6 +73,12 @@ export default function AdminUsersPage() {
     }
   };
 
+  const handleBackToLogin = () => {
+    // Important: clear currentUser so /login shows the login form
+    logout();
+    navigate("/login");
+  };
+
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
       <Card>
@@ -80,7 +87,8 @@ export default function AdminUsersPage() {
             Admin · Create User
           </Typography>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Logged in as: <strong>{currentUser.name}</strong> ({currentUser.occupation})
+            Logged in as: <strong>{currentUser.name}</strong> (
+            {currentUser.occupation})
           </Typography>
 
           {error && (
@@ -122,13 +130,21 @@ export default function AdminUsersPage() {
               ))}
             </TextField>
 
-            <Box>
+            <Box sx={{ display: "flex", gap: 2 }}>
               <Button
                 variant="contained"
                 onClick={handleCreate}
                 disabled={submitting}
               >
                 {submitting ? "Creating..." : "Create User"}
+              </Button>
+
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleBackToLogin}
+              >
+                Back to Login
               </Button>
             </Box>
           </Stack>
