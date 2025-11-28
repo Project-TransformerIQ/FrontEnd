@@ -1,4 +1,3 @@
-// src/pages/TransformersPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -164,10 +163,8 @@ export default function TransformersPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Memoized filtering and natural sort by transformerNo
   const filtered = useMemo(() => {
     let arr = Array.isArray(transformers) ? transformers : [];
 

@@ -1,4 +1,3 @@
-// src/pages/AdminUsersPage.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -74,7 +73,6 @@ export default function AdminUsersPage() {
   };
 
   const handleBackToLogin = () => {
-    // Important: clear currentUser so /login shows the login form
     logout();
     navigate("/login");
   };

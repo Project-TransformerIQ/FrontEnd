@@ -1,4 +1,3 @@
-// src/pages/ComparePage.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -85,7 +84,6 @@ function AIFaultList({
       b.w  >= 0 && b.w  <= 1 &&
       b.h  >= 0 && b.h  <= 1;
 
-  // Keep the original order unless idx is provided; when idx exists, sort by it.
   const rows = items
       .slice()
       .sort((a, b) => {
@@ -160,7 +158,7 @@ function AIFaultList({
                 const num = b?.idx ?? (mapIndex + 1);
                 const tag = String(b?.status || "").toUpperCase() === "FAULTY" ? "Faulty" : "Potential";
                 
-                // Determine color based on status only
+             
                 const status = String(b?.status || "").toUpperCase();
                 const colorDot = status === "FAULTY" ? "rgb(255,0,0)" : "rgb(255,255,0)";
 
@@ -171,21 +169,19 @@ function AIFaultList({
                 const kind = b?.isPoint ? "point" : "box";
                 const isDeleted = b?.isDeleted;
 
-                // Determine annotation type
+                
                 const getAnnotationType = () => {
                   if (!b?.isManual || b?.isManual === false) {
-                    // AI-detected, not modified
+                    
                     if (b?.createdBy === "ai-system" || !b?.createdBy) {
-                      return null; // No annotation tag
+                      return null; 
                     }
                   }
                   
                   if (b?.isManual === true) {
                     if (b?.createdBy === "ai-system") {
-                      // AI-detected but manually edited
                       return { label: "EDITED", color: "warning" };
                     } else {
-                      // Manually added by user
                       return { label: "ADDED", color: "success" };
                     }
                   }
@@ -289,10 +285,7 @@ function AIFaultList({
   );
 }
 
-/** Small badge stack for AI status + anomaly. */
 function AnalysisBadges({ status, anomaly }) {
-  // status: 'running' | 'done' | 'error' | 'disabled'
-  // anomaly: 'FAULTY' | 'POTENTIAL' | 'NORMAL' | undefined (only after done)
   const StatusChip = (() => {
     switch (status) {
       case "running":
@@ -342,12 +335,10 @@ export default function ComparePage() {
   const [maint, setMaint] = useState([]);
   const [idx, setIdx] = useState(0);
 
-  // imageId -> boxes[]
   const [boxesById, setBoxesById] = useState({});
-  // imageId -> { status: 'running'|'done'|'error'|'disabled', anomaly?: 'FAULTY'|'POTENTIAL'|'NORMAL' }
   const [analysisById, setAnalysisById] = useState({});
 
-  // Dialog states
+
   const [drawDialogOpen, setDrawDialogOpen] = useState(false);
   const [boxEditDialogOpen, setBoxEditDialogOpen] = useState(false);
   const [selectedErrorIndex, setSelectedErrorIndex] = useState(null);
@@ -355,7 +346,6 @@ export default function ComparePage() {
   const [isTraining, setIsTraining] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  // Edit tracking and auto-train state
   const [hasUnsavedEdits, setHasUnsavedEdits] = useState(false);
   const [autoTrain, setAutoTrain] = useState(() => {
     const saved = localStorage.getItem('autoTrainEnabled');
@@ -366,66 +356,49 @@ export default function ComparePage() {
       setAnalysisById(prev => ({ ...prev, [imgId]: { ...(prev[imgId] || {}), ...patch } }));
 
   const loadDetections = async (imageIds = []) => {
-    console.log("🔍 loadDetections called with imageIds:", imageIds);
     
     const unique = [...new Set(imageIds.filter(Boolean))];
-    console.log("📋 Unique imageIds:", unique);
     
     const need = unique.filter((k) => boxesById[k] == null);
-    console.log("⚡ Images needing fetch:", need);
-    console.log("💾 Current boxesById state:", boxesById);
     
     if (!need.length) {
-      console.log("✅ All images already loaded, skipping fetch");
       return;
     }
 
-    // mark running
     need.forEach((id) => setAnalysis(id, { status: "running" }));
 
     try {
       const results = await Promise.allSettled(
           need.map(async (imgId) => {
-            console.log(`📡 Fetching errors for image ${imgId}...`);
             
-            // Load all errors (AI-detected + user-added) from database
             const response = await getErrors(imgId);
-            console.log(`📦 Response for image ${imgId}:`, response);
             
             const allErrors = Array.isArray(response?.data?.data) ? response.data.data : [];
-            console.log(`✨ Parsed errors for image ${imgId}:`, allErrors);
             
             return { imgId, boxes: allErrors };
           })
       );
 
-      console.log("🎯 All fetch results:", results);
 
       const nextBoxes = {};
       results.forEach((r, i) => {
         const key = need[i];
         if (r.status === "fulfilled") {
-          console.log(`✅ Success for image ${key}:`, r.value.boxes);
           nextBoxes[key] = r.value.boxes;
           const anomaly = anomalyFromBoxes(r.value.boxes);
-          console.log(`🎨 Anomaly status for ${key}:`, anomaly);
           setAnalysis(key, { status: "done", anomaly });
         } else {
-          console.error(`❌ Failed for image ${key}:`, r.reason);
           nextBoxes[key] = [];
           setAnalysis(key, { status: "error" });
           show(r.reason?.message || `Failed to load errors for image ${key}`, "error");
         }
       });
       
-      console.log("🔄 Updating boxesById with:", nextBoxes);
       setBoxesById((p) => {
         const updated = { ...p, ...nextBoxes };
-        console.log("💡 New boxesById state:", updated);
         return updated;
       });
     } catch (e) {
-      console.error("💥 Unexpected error in loadDetections:", e);
       show(e?.message || "Failed to load errors", "error");
     }
   };
@@ -453,14 +426,12 @@ export default function ComparePage() {
 
         const all = Array.isArray(imgRes?.data) ? imgRes.data : [];
 
-        // Baseline (latest)
         const baselines = all.filter((x) => x.imageType === "BASELINE");
         baselines.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         const latestBaseline = baselines[0] || null;
         setBaseline(latestBaseline);
-        if (latestBaseline?.id) setAnalysis(latestBaseline.id, { status: "disabled" }); // not analyzed by design
+        if (latestBaseline?.id) setAnalysis(latestBaseline.id, { status: "disabled" }); 
 
-        // Maintenance for this inspection
         const wantedId = String(inspectionId);
         let m = all.filter((x) => x.imageType === "MAINTENANCE");
         m = m.filter((x) => getImageInspectionId(x) === wantedId);
@@ -468,7 +439,6 @@ export default function ComparePage() {
         setMaint(m);
         setIdx(0);
 
-        // Start analysis for maintenance images
         await loadDetections(m.map((im) => im.id));
       } catch (e) {
         show(e?.response?.data?.error || e?.message || "Failed to load comparison data", "error");
@@ -477,22 +447,17 @@ export default function ComparePage() {
       }
     })();
     return () => { mounted = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, inspectionId]);
 
-  // If user flips to a maintenance image whose boxes aren't loaded yet
   useEffect(() => {
     const current = maint[idx];
     if (!current?.id) return;
     if (boxesById[current.id] != null) return;
     loadDetections([current.id]);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, maint]);
 
-  // Auto-train on navigation away if enabled and has unsaved edits
   useEffect(() => {
     return () => {
-      // Cleanup function runs when component unmounts (navigating away)
       if (autoTrain && hasUnsavedEdits && transformer?.id && baseline?.id && maint[idx]?.id) {
         const requestBody = {
           transformerId: transformer.id,
@@ -500,9 +465,7 @@ export default function ComparePage() {
           maintenanceImageId: maint[idx].id
         };
         
-        // Use fetch instead of async/await since cleanup can't be async
         trainModel(transformer.id, requestBody).catch(err => {
-          console.error("Auto-train failed on navigation:", err);
         });
       }
     };
@@ -522,16 +485,10 @@ export default function ComparePage() {
       ? <AnalysisBadges status={analysisById[maint[idx].id]?.status || "running"} anomaly={analysisById[maint[idx].id]?.anomaly} />
       : null;
 
-  // Boxes for the currently selected maintenance image (used in unified AI list)
   const currentMaintBoxes = boxesById[maint[idx]?.id] || [];
-  console.log("🖼️ Current maintenance image ID:", maint[idx]?.id);
-  console.log("📦 Current boxes for this image:", currentMaintBoxes);
 
-  // Add indices to boxes for display
   const numberedBoxes = currentMaintBoxes.map((box, i) => ({ ...box, idx: i + 1 }));
-  console.log("🔢 Numbered boxes:", numberedBoxes);
 
-  // Error management handlers
  const handleAddError = async (newError) => {
   if (!maint[idx]?.id) return;
 
@@ -540,8 +497,6 @@ export default function ComparePage() {
 
   setSavingError(true);
   try {
-    // Make sure createdBy is a STRING, not a user object.
-    // Prefer the logged-in user's name; otherwise fall back to AI model label or any provided string.
     const createdByName =
       currentUser?.name ||
       currentUser?.username ||
@@ -557,7 +512,6 @@ export default function ComparePage() {
     const response = await saveError(imageId, errorWithImageId);
     const savedError = response?.data?.data || response?.data;
 
-    // Update local state with server response (includes ID)
     const updatedBoxes = [
       ...currentBoxes,
       {
@@ -597,7 +551,6 @@ const handleSaveEditedError = async (updatedError) => {
 
   setSavingError(true);
   try {
-    // Normalize createdBy and lastModifiedBy into STRINGS
     const createdByName =
       typeof updatedError.createdBy === "string"
         ? updatedError.createdBy
@@ -617,13 +570,12 @@ const handleSaveEditedError = async (updatedError) => {
 
     const nowIso = new Date().toISOString();
 
-    // Build payload that matches UpdateErrorAnnotationDTO
     const payload = {
       ...updatedError,
-      imageId,                                      // ensure matches path
-      id: updatedError.id || updatedError.regionId, // ensure ID is present
-      createdBy: createdByName,                     // String
-      lastModifiedBy: lastModifiedByName,           // String (if DTO has it)
+      imageId,                                      
+      id: updatedError.id || updatedError.regionId, 
+      createdBy: createdByName,                     
+      lastModifiedBy: lastModifiedByName,           
       lastModifiedAt: updatedError.lastModifiedAt || nowIso,
     };
 
@@ -631,7 +583,6 @@ const handleSaveEditedError = async (updatedError) => {
       await updateError(imageId, payload.id, payload);
     }
 
-    // Update local state
     const updatedBoxes = [...currentBoxes];
     updatedBoxes[selectedErrorIndex] = {
       ...updatedBoxes[selectedErrorIndex],
@@ -642,7 +593,6 @@ const handleSaveEditedError = async (updatedError) => {
     setHasUnsavedEdits(true);
     show("Error updated and saved successfully", "success");
   } catch (error) {
-    console.error("Failed to update error:", error);
     show(
       error?.response?.data?.error ||
         error?.message ||
@@ -663,12 +613,10 @@ const handleSaveEditedError = async (updatedError) => {
     
     setSavingError(true);
     try {
-      // Soft delete on backend
       if (errorToDelete.id || errorToDelete.regionId) {
         await deleteErrorApi(imageId, errorToDelete.id || errorToDelete.regionId);
       }
       
-      // Update local state - soft delete
       const updatedBoxes = [...currentBoxes];
       updatedBoxes[index] = {
         ...updatedBoxes[index],
@@ -677,7 +625,7 @@ const handleSaveEditedError = async (updatedError) => {
       };
       
       setBoxesById(prev => ({ ...prev, [imageId]: updatedBoxes }));
-      setHasUnsavedEdits(true); // Mark as having unsaved edits
+      setHasUnsavedEdits(true); 
       show("Error marked as deleted", "warning");
     } catch (error) {
       console.error("Failed to delete error:", error);
@@ -707,7 +655,7 @@ const handleSaveEditedError = async (updatedError) => {
       };
 
       await trainModel(transformer.id, requestBody);
-      setHasUnsavedEdits(false); // Reset unsaved edits after successful training
+      setHasUnsavedEdits(false); 
       show("Model training started successfully", "success");
     } catch (error) {
       console.error("Failed to train model:", error);
@@ -728,10 +676,8 @@ const handleSaveEditedError = async (updatedError) => {
     try {
       const response = await downloadAnomalyComparison(imageId);
       
-      // Create a blob from the response
       const blob = new Blob([response.data], { type: 'application/json' });
       
-      // Create a download link and trigger it
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -739,7 +685,6 @@ const handleSaveEditedError = async (updatedError) => {
       document.body.appendChild(link);
       link.click();
       
-      // Cleanup
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
       
@@ -814,7 +759,7 @@ const handleSaveEditedError = async (updatedError) => {
                 <ZoomableImageWithBoxes
                     src={buildImageRawUrl(baseline.id)}
                     alt={baseline.filename || `baseline-${baseline.id}`}
-                    boxes={[]} // no overlays on baseline
+                    boxes={[]}
                     topLeft={baselineBadge}
                     showControls
                 />

@@ -1,4 +1,4 @@
-// src/components/common/DeleteConfirmDialog.jsx
+
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, Typography

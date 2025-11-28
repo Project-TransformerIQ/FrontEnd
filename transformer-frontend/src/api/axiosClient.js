@@ -2,10 +2,10 @@ import axios from "axios";
 
 const axiosClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL, // -> http://localhost:8080/api
-  withCredentials: false,                // keep false unless you add auth cookies
+  withCredentials: false,                
 });
 
-// optional: basic response error logging
+
 axiosClient.interceptors.response.use(
   (res) => res,
   (err) => {

@@ -1,4 +1,4 @@
-// src/App.jsx
+
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { UserProvider, useUser } from "./contexts/UserContext";
 
@@ -13,7 +13,6 @@ import AdminUsersPage from "./pages/AdminUsersPage";
 
 import "./App.css";
 
-// 🔒 Guard: any route that needs a logged-in user
 function ProtectedRoute({ children }) {
   const { currentUser } = useUser();
 

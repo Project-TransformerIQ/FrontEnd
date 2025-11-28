@@ -1,29 +1,17 @@
 import { Card, Box, Typography } from "@mui/material";
 
-/**
- * Minimal, transparent stat card (no gradients, no shadows).
- *
- * Props supported:
- *  - title: string
- *  - value: string|number
- *  - icon: ReactNode
- *  - color?: CSS color (preferred)
- *  - gradient?: string (legacy) -> will be flattened to a single color
- *  - accent?: string (legacy)   -> ignored for styling (kept for API compat)
- */
+
 export default function StatCard({ title, value, icon, color, gradient, accent }) {
-  // If a gradient string is passed, extract its first color to keep backward compatibility.
-  // e.g., "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)" -> "#4facfe"
+
   const base =
     color ||
     extractFirstColorFromGradient(gradient) ||
-    "#1976d2"; // safe default MUI blue
+    "#1976d2"; 
 
-  // Build transparent tints from the base color
-  const bg = withAlpha(base, 0.12);   // card fill
-  const br = withAlpha(base, 0.35);   // border
-  const tile = withAlpha(base, 0.16); // icon tile
-  const text = base;                  // text/icon color
+  const bg = withAlpha(base, 0.12);   
+  const br = withAlpha(base, 0.35);   
+  const tile = withAlpha(base, 0.16); 
+  const text = base;              
 
   return (
     <Card
@@ -40,7 +28,6 @@ export default function StatCard({ title, value, icon, color, gradient, accent }
         gap: 2,
         backgroundColor: bg,
         border: `1px solid ${br}`,
-        // absolutely no shadows or extra effects
         boxShadow: "none",
         "&:before, &:after": { display: "none" },
       }}
@@ -73,12 +60,9 @@ export default function StatCard({ title, value, icon, color, gradient, accent }
   );
 }
 
-/* --- helpers --- */
 
-/** Try to extract the first color in a gradient string; return undefined if none. */
 function extractFirstColorFromGradient(gradient) {
   if (!gradient || typeof gradient !== "string") return undefined;
-  // match hex (#fff / #ffffff), rgb(), rgba(), hsl(), hsla()
   const m =
     gradient.match(/#([0-9a-f]{3,8})/i) ||
     gradient.match(/rgba?\([^)]+\)/i) ||
@@ -86,22 +70,17 @@ function extractFirstColorFromGradient(gradient) {
   return m ? m[0] : undefined;
 }
 
-/** Convert a hex/rgb(a)/hsl(a) color to rgba with the given alpha. */
 function withAlpha(color, alpha) {
-  // If already rgba/hsla, just replace the alpha if possible
   if (/^rgba?\(/i.test(color)) {
-    // rgba(r,g,b[,a]) -> rgba(r,g,b,alpha)
     const nums = color.match(/[\d.]+/g) || [];
     const [r, g, b] = nums.map(Number);
     return `rgba(${clamp255(r)}, ${clamp255(g)}, ${clamp255(b)}, ${alpha})`;
   }
   if (/^hsla?\(/i.test(color)) {
-    // basic passthrough -> keep as-is but with new alpha
     const nums = color.match(/[\d.]+/g) || [];
     const [h, s, l] = nums.map(Number);
     return `hsla(${h}, ${s}%, ${l}%, ${alpha})`;
   }
-  // hex -> rgba
   const rgb = hexToRgb(color) || { r: 25, g: 118, b: 210 }; // default #1976d2
   return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${alpha})`;
 }

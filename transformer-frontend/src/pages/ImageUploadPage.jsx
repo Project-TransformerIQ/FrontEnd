@@ -1,4 +1,3 @@
-// src/pages/ImageUploadPage.jsx
 import { useEffect, useState } from "react";
 import {
   Alert, Avatar, Box, Button, Card, CardContent, Chip, FormControl,
@@ -36,7 +35,6 @@ export default function ImageUploadPage() {
         show("Failed to load transformers", "error");
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const toNumberOrUndefined = (v) => v === "" || v === null ? undefined : Number(v);
@@ -83,7 +81,6 @@ export default function ImageUploadPage() {
       await axiosClient.post(`${apiBase}/${selectedId}/images`, formData, { headers: { "Content-Type": "multipart/form-data" } });
 
       show("Image uploaded successfully!");
-      // reset
       setFile(null); setPreview(null); setUploader("");
       setSelectedId(null); setImageType(IMAGE_TYPES.BASELINE);
       setEnv({ weather: "SUNNY", temperatureC: "", humidity: "", locationNote: "" });

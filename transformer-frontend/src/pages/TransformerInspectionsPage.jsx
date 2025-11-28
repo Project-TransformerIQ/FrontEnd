@@ -1,4 +1,3 @@
-// src/pages/TransformerInspectionsPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -29,7 +28,6 @@ export default function TransformerInspectionsPage() {
   const locationState = useLocation().state;
   const theme = useTheme();
 
-  // prefilled from navigation state (fast), fallback to API fetch
   const [transformer, setTransformer] = useState(locationState?.transformer || null);
   const [inspections, setInspections] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -73,9 +71,9 @@ export default function TransformerInspectionsPage() {
       setLoading(false);
     }
   };
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { load();}, [id]);
 
-  // stats
+
   const stats = useMemo(() => ({
     total: inspections.length,
     open: inspections.filter((i) => i.status === "OPEN").length,

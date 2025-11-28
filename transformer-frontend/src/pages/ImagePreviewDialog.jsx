@@ -31,7 +31,6 @@ export default function ImagePreviewDialog({
 
   const img = images[index];
 
-  // Prefer base64 if available; otherwise fall back to raw URL
   const mime =
     img?.contentType ||
     img?.mimeType ||
@@ -60,7 +59,6 @@ export default function ImagePreviewDialog({
     typeof b === "number" ? `${(b / 1024 / 1024).toFixed(2)} MB` : "-";
   const ts = img?.createdAt ? new Date(img.createdAt).toLocaleString() : "";
 
-  // Keyboard navigation
   useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
@@ -70,10 +68,8 @@ export default function ImagePreviewDialog({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, images.length]);
 
-  // Touch swipe
   useEffect(() => {
     if (!open) return;
     let startX = null;
@@ -92,7 +88,6 @@ export default function ImagePreviewDialog({
       el.removeEventListener("touchstart", onTouchStart);
       el.removeEventListener("touchend", onTouchEnd);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, index, images.length]);
 
   return (

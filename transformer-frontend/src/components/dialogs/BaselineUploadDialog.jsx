@@ -1,4 +1,4 @@
-// src/components/dialogs/BaselineUploadDialog.jsx
+
 import {
   Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Stack, MenuItem, Box, Avatar, Chip, LinearProgress
@@ -56,7 +56,7 @@ export default function BaselineUploadDialog({
       await uploadImage(transformerId, fd);
       onUploaded?.();
       onClose?.();
-      // reset
+      
       setUploader(""); setWeather("SUNNY"); setTemperatureC(""); setHumidity(""); setLocationNote("");
       setFile(null); setPreview(null);
     } finally { setLoading(false); }

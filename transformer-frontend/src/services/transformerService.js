@@ -55,9 +55,6 @@ export const buildImageRawUrl = (imageId) => {
   const apiPrefix = (axiosClient.defaults.baseURL || "/api").replace(/\/$/, "");
   return `${apiPrefix}${apiBase}/images/${imageId}/raw`;
 };
-// ------------------------------------------------------
-//  FR4.x — Maintenance Record APIs
-// ------------------------------------------------------
 
 // FR4.1 — Generate Maintenance Record Form
 export const getMaintenanceRecordForm = (

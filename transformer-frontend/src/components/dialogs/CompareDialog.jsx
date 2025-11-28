@@ -10,7 +10,7 @@ import { getImages, buildImageRawUrl } from "../../services/transformerService";
 export default function CompareDialog({
   open,
   transformerId,
-  inspection, // optional: if provided, we’ll filter maintenance images by inspection
+  inspection, 
   onClose,
 }) {
   const [loading, setLoading] = useState(false);
@@ -28,7 +28,7 @@ export default function CompareDialog({
     (async () => {
       setLoading(true);
       try {
-        // Ask backend with filters
+
         const [baselineRes, maintRes] = await Promise.all([
           getImages(transformerId, { type: "BASELINE" }),
           inspection?.id
@@ -36,12 +36,12 @@ export default function CompareDialog({
             : getImages(transformerId, { type: "MAINTENANCE" }),
         ]);
 
-        // latest baseline
+
         const baselines = Array.isArray(baselineRes?.data) ? baselineRes.data : [];
         baselines.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         setBaseline(baselines[0] || null);
 
-        // maintenance filtered
+
         const m = Array.isArray(maintRes?.data) ? maintRes.data : [];
         m.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
         setMaint(m);

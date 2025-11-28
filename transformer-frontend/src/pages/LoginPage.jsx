@@ -1,4 +1,3 @@
-// src/pages/LoginPage.jsx
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -13,7 +12,7 @@ import {
   Alert,
 } from "@mui/material";
 import { ElectricalServices } from "@mui/icons-material";
-import { useUser } from "../contexts/UserContext"; // ⬅️ important
+import { useUser } from "../contexts/UserContext";
 
 export default function LoginPage() {
   const { login } = useUser();
@@ -28,10 +27,7 @@ export default function LoginPage() {
     setError("");
 
     try {
-      // 🔐 backend checks password
       const user = await login(name.trim(), password);
-
-      // 🎯 redirect based on admin flag from backend
       if (user.admin) {
         navigate("/admin/users", { replace: true });
       } else {

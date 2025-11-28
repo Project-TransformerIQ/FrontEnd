@@ -1,4 +1,3 @@
-// src/pages/MaintenanceRecordPage.jsx
 import { useEffect, useMemo, useRef, useState } from "react";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -162,7 +161,6 @@ export default function MaintenanceRecordPage() {
     if (!id) return;
     loadForm();
     loadHistory();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, inspectionId]);
 
   const handleReadingChange = (index, field, value) => {
@@ -254,7 +252,6 @@ export default function MaintenanceRecordPage() {
   const inspection = formPayload?.inspection || inspectionFromState;
   const maintenanceImage = formPayload?.maintenanceImage;
   console.log("formPayload", formPayload);
-  // Filter out deleted anomalies and map to boxes
   const filteredAnomalies = useMemo(() => {
     if (!formPayload?.anomalies) return [];
     return formPayload.anomalies.filter(
@@ -320,7 +317,6 @@ export default function MaintenanceRecordPage() {
     }
   };
 
-  // Simple AI anomaly summary stats
   const anomalySummary = useMemo(() => {
     const total = filteredAnomalies.length;
     const faulty = filteredAnomalies.filter((a) =>
@@ -331,7 +327,6 @@ export default function MaintenanceRecordPage() {
   }, [filteredAnomalies]);
 
  const formatAnnotator = (a) => {
-  // Prefer the explicit createdBy / created_by field from formPayload.anomalies
   const createdBy =
     a.createdBy ??
     a.created_by ??
@@ -350,13 +345,11 @@ export default function MaintenanceRecordPage() {
     }
   };
 
-  // Generate PDF in "pdfMode" (hide buttons / interactive UI and use simpler chips)
   const handleDownloadPdf = async () => {
     if (!pdfRef.current) return;
 
     try {
       setPdfMode(true);
-      // wait one tick for React to re-render
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       const element = pdfRef.current;

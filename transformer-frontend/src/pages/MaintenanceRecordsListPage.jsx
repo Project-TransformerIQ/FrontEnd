@@ -1,4 +1,3 @@
-// src/pages/MaintenanceRecordsListPage.jsx
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -45,7 +44,6 @@ export default function MaintenanceRecordsListPage() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // status helpers (same mapping as MaintenanceRecordPage)
   const getStatusColor = (statusValue) => {
     switch (statusValue) {
       case "OK":
@@ -91,7 +89,6 @@ export default function MaintenanceRecordsListPage() {
   useEffect(() => {
     if (!id) return;
     loadRecords();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const sortedRecords = useMemo(() => {
@@ -102,13 +99,12 @@ export default function MaintenanceRecordsListPage() {
       const tb = b.inspectionTimestamp
         ? new Date(b.inspectionTimestamp).getTime()
         : 0;
-      return tb - ta; // newest first
+      return tb - ta;
     });
   }, [records]);
 
   const handleViewRecord = (rec) => {
     if (!rec.inspectionId) {
-      // Defensive: don't navigate to a broken route
       show(
         "This maintenance record is not linked to an inspection.",
         "warning"
@@ -116,13 +112,11 @@ export default function MaintenanceRecordsListPage() {
       return;
     }
 
-    // 🔥 This path must match your existing MaintenanceRecordPage route
     navigate(
       `/transformers/${id}/inspections/${rec.inspectionId}/maintenance-records`,
       {
         state: {
           transformer: transformer || null,
-          // inspection is loaded on the backend from inspectionId, so we don't need to pass it
         },
       }
     );
@@ -327,7 +321,7 @@ export default function MaintenanceRecordsListPage() {
                           <IconButton
                             size="small"
                             onClick={(e) => {
-                              e.stopPropagation(); // don't trigger row click twice
+                              e.stopPropagation();
                               handleViewRecord(rec);
                             }}
                             sx={{

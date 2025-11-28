@@ -1,4 +1,4 @@
-// src/components/common/ZoomableImageWithBoxes.jsx
+
 import { Box, Stack, Tooltip, IconButton } from "@mui/material";
 import { ZoomIn, ZoomOut, RestartAlt } from "@mui/icons-material";
 import { useEffect, useRef, useState } from "react";
